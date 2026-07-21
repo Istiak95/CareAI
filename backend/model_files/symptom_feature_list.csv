@@ -1,0 +1,399 @@
+feature_index,symptom_name
+0,pain chest
+1,shortness of breath
+2,dizziness
+3,asthenia
+4,fall
+5,syncope
+6,vertigo
+7,sweat sweating increased
+8,palpitation
+9,nausea
+10,angina pectoris
+11,pressure chest
+12,polyuria
+13,polydypsia
+14,orthopnea
+15,rale
+16,unresponsiveness
+17,mental status changes
+18,vomiting
+19,labored breathing
+20,feeling suicidal
+21,suicidal
+22,hallucinations auditory
+23,feeling hopeless
+24,weepiness
+25,sleeplessness
+26,motor retardation
+27,irritable mood
+28,blackout
+29,mood depressed
+30,hallucinations visual
+31,worry
+32,agitation
+33,tremor
+34,intoxication
+35,verbal auditory hallucinations
+36,energy increased
+37,difficulty
+38,nightmare
+39,unable to concentrate
+40,homelessness
+41,hypokinesia
+42,dyspnea on exertion
+43,chest tightness
+44,cough
+45,fever
+46,decreased translucency
+47,productive cough
+48,pleuritic pain
+49,yellow sputum
+50,breath sounds decreased
+51,chill
+52,rhonchus
+53,green sputum
+54,non-productive cough
+55,wheezing
+56,haemoptysis
+57,distress respiratory
+58,tachypnea
+59,malaise
+60,night sweat
+61,jugular venous distention
+62,dyspnea
+63,dysarthria
+64,speech slurred
+65,facial paresis
+66,hemiplegia
+67,seizure
+68,numbness
+69,symptom aggravating factors
+70,st segment elevation
+71,st segment depression
+72,t wave inverted
+73,presence of q wave
+74,chest discomfort
+75,bradycardia
+76,pain
+77,nonsmoker
+78,erythema
+79,hepatosplenomegaly
+80,pruritus
+81,diarrhea
+82,abscess bacterial
+83,swelling
+84,apyrexial
+85,dysuria
+86,hematuria
+87,renal angle tenderness
+88,lethargy
+89,hyponatremia
+90,hemodynamically stable
+91,difficulty passing urine
+92,consciousness clear
+93,guaiac positive
+94,monoclonal
+95,ecchymosis
+96,tumor cell invasion
+97,haemorrhage
+98,pallor
+99,fatigue
+100,heme positive
+101,pain back
+102,orthostasis
+103,arthralgia
+104,transaminitis
+105,sputum purulent
+106,hypoxemia
+107,hypercapnia
+108,patient non compliance
+109,unconscious state
+110,bedridden
+111,abdominal tenderness
+112,unsteady gait
+113,hyperkalemia
+114,urgency of micturition
+115,ascites
+116,hypotension
+117,enuresis
+118,asterixis
+119,muscle twitch
+120,sleepy
+121,headache
+122,lightheadedness
+123,food intolerance
+124,numbness of hand
+125,general discomfort
+126,drowsiness
+127,stiffness
+128,prostatism
+129,drowsiness sleepy
+130,weight gain
+131,fatigue tired
+132,mass of body structure
+133,has religious belief
+134,nervousness
+135,formication
+136,hot flush
+137,lesion
+138,cushingoid facies cushingoid habitus
+139,emphysematous change
+140,decreased body weight
+141,hoarseness
+142,thicken
+143,spontaneous rupture of membranes
+144,muscle hypotonia hypotonic
+145,redness
+146,hypesthesia
+147,hyperacusis
+148,scratch marks
+149,sore to touch
+150,burning sensation
+151,satiety early
+152,throbbing sensation quality
+153,sensory discomfort
+154,constipation
+155,pain abdominal
+156,heartburn
+157,breech presentation
+158,cyanosis
+159,pain in lower limb
+160,cardiomegaly
+161,clonus
+162,unwell
+163,anorexia
+164,syncope blackout history of - blackout
+165,anosmia
+166,metastatic lesion
+167,hemianopsia homonymous
+168,hematocrit decreased
+169,neck stiffness
+170,cicatrisation
+171,hypometabolism
+172,aura
+173,myoclonus
+174,gurgle
+175,wheelchair bound
+176,left atrial hypertrophy
+177,oliguria
+178,catatonia
+179,unhappy
+180,paresthesia
+181,gravida
+182,lung nodule
+183,distended abdomen
+184,ache
+185,macerated skin
+186,heavy feeling
+187,rest pain
+188,sinus rhythm
+189,withdraw
+190,behavior hyperactive
+191,terrify
+192,photopsia
+193,giddy mood
+194,disturbed family
+195,hypersomnia
+196,hyperhidrosis disorder
+197,mydriasis
+198,extrapyramidal sign
+199,loose associations
+200,exhaustion
+201,snore
+202,r wave feature
+203,overweight
+204,systolic murmur
+205,asymptomatic
+206,splenomegaly
+207,bleeding of vagina
+208,macule
+209,photophobia
+210,painful swallowing
+211,cachexia
+212,hypocalcemia result
+213,"hypothermia, natural"
+214,atypia
+215,general unsteadiness
+216,throat sore
+217,snuffle
+218,hacking cough
+219,stridor
+220,paresis
+221,aphagia
+222,focal seizures
+223,abnormal sensation
+224,stupor
+225,fremitus
+226,stahli's line
+227,stinging sensation
+228,paralyse
+229,hirsutism
+230,sniffle
+231,bradykinesia
+232,out of breath
+233,urge incontinence
+234,vision blurred
+235,room spinning
+236,rambling speech
+237,clumsiness
+238,decreased stool caliber
+239,hematochezia
+240,egophony
+241,cicatrisation scar tissue
+242,neologism
+243,decompensation
+244,stool color yellow
+245,rigor - temperature-associated observation
+246,paraparesis
+247,moody
+248,fear of falling
+249,spasm
+250,hyperventilation
+251,excruciating pain
+252,gag
+253,posturing
+254,pulse absent
+255,dysesthesia
+256,polymyalgia
+257,passed stones
+258,qt interval prolonged
+259,ataxia
+260,heberden's node
+261,hepatomegaly
+262,sciatica
+263,frothy sputum
+264,mass in breast
+265,retropulsion
+266,estrogen use
+267,hypersomnolence
+268,underweight
+269,dullness
+270,red blotches
+271,colic abdominal
+272,hypokalemia
+273,hunger
+274,prostate tender
+275,pain foot
+276,urinary hesitation
+277,disequilibrium
+278,flushing
+279,indifferent mood
+280,urinoma
+281,hypoalbuminemia
+282,pustule
+283,slowing of urinary stream
+284,extreme exhaustion
+285,no status change
+286,breakthrough pain
+287,pansystolic murmur
+288,systolic ejection murmur
+289,stuffy nose
+290,barking cough
+291,rapid shallow breathing
+292,noisy respiration
+293,nasal discharge present
+294,frail
+295,cystic lesion
+296,projectile vomiting
+297,heavy legs
+298,titubation
+299,dysdiadochokinesia
+300,achalasia
+301,side pain
+302,monocytosis
+303,posterior rhinorrhea
+304,incoherent
+305,lameness claudication
+306,clammy skin
+307,mediastinal shift
+308,nausea and vomiting
+309,awakening early
+310,tenesmus
+311,fecaluria
+312,pneumatouria
+313,todd paralysis
+314,alcoholic withdrawal symptoms
+315,myalgia
+316,dyspareunia
+317,poor dentition
+318,floppy
+319,inappropriate affect
+320,poor feeding
+321,moan
+322,welt
+323,tinnitus
+324,hydropneumothorax
+325,superimposition
+326,feeling strange
+327,uncoordination
+328,absences finding
+329,tonic seizures
+330,debilitation
+331,impaired cognition
+332,drool
+333,pin-point pupils
+334,tremor resting
+335,groggy
+336,adverse reaction adverse effect
+337,abdominal bloating
+338,fatigability
+339,para
+340,abortion
+341,intermenstrual heavy bleeding
+342,previous pregnancies
+343,primigravida
+344,abnormally hard consistency
+345,proteinemia
+346,pain neck
+347,dizzy spells
+348,shooting pain
+349,hyperemesis
+350,milky
+351,regurgitates after swallowing
+352,lip smacking
+353,phonophobia
+354,rolling of eyes
+355,ambidexterity
+356,pulsus paradoxus
+357,bruit
+358,breath-holding spell
+359,scleral icterus
+360,retch
+361,blanch
+362,elation
+363,verbally abusive behavior
+364,transsexual
+365,behavior showing increased motor activity
+366,scar tissue
+367,coordination abnormal
+368,choke
+369,bowel sounds decreased
+370,no known drug allergies
+371,low back pain
+372,charleyhorse
+373,sedentary
+374,feels hot/feverish
+375,flare
+376,pericardial friction rub
+377,hoard
+378,panic
+379,cardiovascular finding cardiovascular event
+380,soft tissue swelling
+381,rhd positive
+382,nasal flaring
+383,sneeze
+384,hypertonicity
+385,murphy's sign
+386,flatulence
+387,gasping for breath
+388,feces in rectum
+389,prodrome
+390,hypoproteinemia
+391,alcohol binge episode
+392,abdomen acute
+393,air fluid level
+394,catching breath
+395,large-for-dates fetus
+396,immobile
+397,homicidal thoughts

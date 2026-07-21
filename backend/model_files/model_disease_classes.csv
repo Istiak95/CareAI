@@ -1,0 +1,133 @@
+class_index,disease_name
+0,accident cerebrovascular
+1,acquired immuno-deficiency syndrome hiv hiv infections
+2,adenocarcinoma
+3,adhesion
+4,affect labile
+5,alzheimer's disease
+6,anemia
+7,anxiety state
+8,arthritis
+9,asthma
+10,bacteremia
+11,benign prostatic hypertrophy
+12,bipolar disorder
+13,bronchitis
+14,candidiasis oralcandidiasis
+15,carcinoma
+16,cardiomyopathy
+17,cellulitis
+18,cholecystitis
+19,cholelithiasis biliary calculus
+20,chronic alcoholic intoxication
+21,chronic kidney failure
+22,chronic obstructive airway disease
+23,cirrhosis
+24,colitis
+25,confusion
+26,"coronary arteriosclerosis ,coronary heart disease"
+27,deep vein thrombosis
+28,degenerative polyarthritis
+29,deglutition disorder
+30,dehydration
+31,delirium
+32,delusion
+33,dementia
+34,dependence
+35,"depression mental , depressive disorder"
+36,diabetes
+37,diverticulitis
+38,diverticulosis
+39,edema pulmonary
+40,effusion pericardial pericardial effusion body substance
+41,embolism pulmonary
+42,emphysema pulmonary
+43,encephalopathy
+44,endocarditis
+45,epilepsy
+46,exanthema
+47,failure heart
+48,failure heart congestive
+49,failure kidney
+50,fibroid tumor
+51,gastritis
+52,gastroenteritis
+53,gastroesophageal reflux disease
+54,glaucoma
+55,gout
+56,hemiparesis
+57,hemorrhoids
+58,hepatitis
+59,hepatitis b
+60,hepatitis c
+61,hernia
+62,hernia hiatal
+63,hyperbilirubinemia
+64,hypercholesterolemia
+65,hyperglycemia
+66,hyperlipidemia
+67,hypertension pulmonary
+68,hypertensive disease
+69,hypoglycemia
+70,hypothyroidism
+71,ileus
+72,incontinence
+73,infection
+74,infection urinary tract
+75,influenza
+76,insufficiency renal
+77,ischemia
+78,ketoacidosis diabetic
+79,kidney disease
+80,kidney failure acute
+81,lymphatic diseases
+82,lymphoma
+83,malignant neoplasm of breast carcinoma breast
+84,malignant neoplasm of lung carcinoma of lung
+85,malignant neoplasm of prostate carcinoma prostate
+86,malignant neoplasms
+87,malignant neoplasms primary malignant neoplasm
+88,malignant tumor of colon carcinoma colon
+89,manic disorder
+90,melanoma
+91,migraine disorders
+92,mitral valve insufficiency
+93,myocardial infarction
+94,neoplasm
+95,neoplasm metastasis
+96,neuropathy
+97,neutropenia
+98,obesity
+99,obesity morbid
+100,osteomyelitis
+101,osteoporosis
+102,overload fluid
+103,pancreatitis
+104,pancytopenia
+105,paranoia
+106,parkinson disease
+107,paroxysmal dyspnea
+108,peripheral vascular disease
+109,personality disorder
+110,pneumocystis carinii pneumonia
+111,pneumonia
+112,pneumonia aspiration
+113,pneumothorax
+114,primary carcinoma of the liver cells
+115,psychotic disorder
+116,pyelonephritis
+117,respiratory failure
+118,schizophrenia
+119,septicemia systemic infection sepsis (invertebrate)
+120,sickle cell anemia
+121,spasm bronchial
+122,stenosis aortic valve
+123,suicide attempt
+124,tachycardia sinus
+125,thrombocytopaenia
+126,thrombus
+127,tonic-clonic epilepsy tonic-clonic seizures
+128,transient ischemic attack
+129,tricuspid valve insufficiency
+130,ulcer peptic
+131,upper respiratory infection

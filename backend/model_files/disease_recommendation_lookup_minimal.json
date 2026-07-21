@@ -1,0 +1,1469 @@
+{
+  "accident cerebrovascular": {
+    "doctor_type_patient_should_see": "Emergency medicine urgently; Neurologist / stroke team",
+    "common_tests_to_discuss_with_clinician": [
+      "Emergency brain CT or MRI",
+      "blood glucose",
+      "CBC/CMP/coagulation profile",
+      "ECG",
+      "vascular imaging such as CT angiography/carotid imaging as directed."
+    ],
+    "short_care_note": "Treat as emergency if sudden weakness, facial droop, speech trouble, vision loss, severe headache, imbalance, or confusion. Do not drive; record symptom onset time; seek emergency care."
+  },
+  "acquired immuno-deficiency syndrome hiv hiv infections": {
+    "doctor_type_patient_should_see": "Infectious disease specialist; HIV clinic; primary care for ongoing monitoring",
+    "common_tests_to_discuss_with_clinician": [
+      "HIV Ag/Ab test with confirmatory HIV-1/2 differentiation or NAT as indicated",
+      "CD4 count",
+      "HIV viral load",
+      "CBC/CMP",
+      "STI, TB, hepatitis B/C screening."
+    ],
+    "short_care_note": "Use specialist HIV care; do not stop antiretroviral medicines without clinician advice; practice safer sex; seek urgent care for fever, severe shortness of breath, confusion, or opportunistic infection signs."
+  },
+  "adenocarcinoma": {
+    "doctor_type_patient_should_see": "Oncologist; organ-specific specialist depending on suspected site",
+    "common_tests_to_discuss_with_clinician": [
+      "Site-directed imaging (ultrasound/CT/MRI)",
+      "biopsy with pathology",
+      "CBC/CMP",
+      "tumor markers only when clinically appropriate",
+      "staging scans as directed."
+    ],
+    "short_care_note": "Needs specialist evaluation and tissue confirmation. Seek urgent care for bleeding, severe pain, breathlessness, or rapid deterioration."
+  },
+  "adhesion": {
+    "doctor_type_patient_should_see": "General surgeon; gastroenterologist or gynecologist depending on site",
+    "common_tests_to_discuss_with_clinician": [
+      "Clinical exam",
+      "abdominal/pelvic ultrasound or CT if obstruction suspected",
+      "CBC/electrolytes",
+      "surgical review if recurrent obstruction."
+    ],
+    "short_care_note": "Seek urgent care for severe abdominal pain, vomiting, distension, inability to pass stool/gas, or fever."
+  },
+  "affect labile": {
+    "doctor_type_patient_should_see": "Psychiatrist; clinical psychologist; primary care for screening",
+    "common_tests_to_discuss_with_clinician": [
+      "Mental status exam",
+      "depression/anxiety/bipolar screening",
+      "suicide/self-harm risk assessment",
+      "consider thyroid tests, CBC/CMP, substance-use screen if indicated."
+    ],
+    "short_care_note": "Seek urgent mental-health help if suicidal thoughts, self-harm risk, psychosis, or inability to function. Keep sleep routine and avoid alcohol/drugs."
+  },
+  "alzheimer's disease": {
+    "doctor_type_patient_should_see": "Neurologist, geriatrician, or memory clinic; primary care for support",
+    "common_tests_to_discuss_with_clinician": [
+      "Cognitive assessment",
+      "medication review",
+      "CBC/CMP/TSH/B12",
+      "depression screen",
+      "brain imaging when indicated."
+    ],
+    "short_care_note": "Ensure safe home environment, medication support, caregiver education, and follow-up. Seek urgent care for sudden confusion or stroke-like symptoms."
+  },
+  "anemia": {
+    "doctor_type_patient_should_see": "Primary care/internal medicine; hematologist if severe, unexplained, or recurrent",
+    "common_tests_to_discuss_with_clinician": [
+      "CBC with indices",
+      "reticulocyte count",
+      "ferritin/iron studies",
+      "B12/folate",
+      "stool occult blood or further GI/gynecology workup if bleeding suspected."
+    ],
+    "short_care_note": "Do not self-treat severe anemia. Seek urgent care for chest pain, fainting, severe shortness of breath, black stool, or heavy bleeding."
+  },
+  "anxiety state": {
+    "doctor_type_patient_should_see": "Primary care; psychiatrist/psychologist if persistent, severe, panic, or functional impairment",
+    "common_tests_to_discuss_with_clinician": [
+      "Clinical anxiety assessment",
+      "screen for depression/suicide risk",
+      "consider TSH, CBC, glucose, ECG if palpitations/chest symptoms."
+    ],
+    "short_care_note": "Use breathing/grounding strategies, reduce caffeine/alcohol, maintain sleep. Urgent care if chest pain, fainting, suicidal thoughts, or psychosis."
+  },
+  "arthritis": {
+    "doctor_type_patient_should_see": "Primary care; rheumatologist for inflammatory arthritis; orthopedic specialist for severe degenerative disease",
+    "common_tests_to_discuss_with_clinician": [
+      "Joint exam",
+      "CBC/ESR/CRP",
+      "rheumatoid factor/anti-CCP/ANA if inflammatory features",
+      "uric acid or joint aspiration if gout/infection suspected",
+      "X-ray/ultrasound as needed."
+    ],
+    "short_care_note": "Avoid overuse during flare; seek urgent care for hot swollen joint with fever, trauma, or inability to bear weight."
+  },
+  "asthma": {
+    "doctor_type_patient_should_see": "Primary care; pulmonologist/allergist for poor control or uncertain diagnosis",
+    "common_tests_to_discuss_with_clinician": [
+      "Spirometry with bronchodilator response",
+      "peak flow",
+      "pulse oximetry during attacks",
+      "allergy testing if indicated",
+      "chest X-ray if atypical."
+    ],
+    "short_care_note": "Use prescribed inhalers correctly; avoid triggers; seek urgent care for severe breathlessness, blue lips, inability to speak, or no relief from rescue inhaler."
+  },
+  "bacteremia": {
+    "doctor_type_patient_should_see": "Emergency/internal medicine; infectious disease specialist",
+    "common_tests_to_discuss_with_clinician": [
+      "Blood cultures before antibiotics when possible",
+      "CBC/CMP",
+      "lactate if sepsis suspected",
+      "urinalysis/culture, chest X-ray, wound cultures, and imaging to find source."
+    ],
+    "short_care_note": "Potentially serious. Seek urgent care for fever with chills, confusion, low blood pressure, rapid breathing, or worsening infection."
+  },
+  "benign prostatic hypertrophy": {
+    "doctor_type_patient_should_see": "Primary care; urologist for retention, hematuria, recurrent UTI, kidney issues, or severe symptoms",
+    "common_tests_to_discuss_with_clinician": [
+      "Urinalysis",
+      "symptom score",
+      "PSA if appropriate after shared decision",
+      "creatinine if retention/kidney concern",
+      "post-void residual/uroflow if needed."
+    ],
+    "short_care_note": "Seek urgent care if unable to pass urine, fever with urinary symptoms, blood in urine, or severe flank pain."
+  },
+  "bipolar disorder": {
+    "doctor_type_patient_should_see": "Psychiatrist; primary care for coordination",
+    "common_tests_to_discuss_with_clinician": [
+      "Psychiatric assessment",
+      "mood episode history",
+      "suicide/self-harm risk assessment",
+      "substance-use screen",
+      "baseline labs before mood stabilizers as clinician directs."
+    ],
+    "short_care_note": "Maintain sleep routine, avoid alcohol/drugs, do not stop medicines suddenly. Urgent care for mania with risky behavior, psychosis, or suicidal thoughts."
+  },
+  "bronchitis": {
+    "doctor_type_patient_should_see": "Primary care; pulmonologist if recurrent/chronic or COPD/asthma overlap",
+    "common_tests_to_discuss_with_clinician": [
+      "Usually clinical",
+      "pulse oximetry",
+      "chest X-ray if pneumonia suspected",
+      "spirometry if chronic/recurrent",
+      "viral testing if indicated."
+    ],
+    "short_care_note": "Hydration, rest, avoid smoke. Seek care for high fever, shortness of breath, chest pain, low oxygen, or symptoms lasting/worsening."
+  },
+  "candidiasis oralcandidiasis": {
+    "doctor_type_patient_should_see": "Primary care; dentist/oral medicine; infectious disease if recurrent/immunocompromised",
+    "common_tests_to_discuss_with_clinician": [
+      "Oral exam",
+      "swab/KOH/culture if uncertain",
+      "screen for diabetes/HIV or immunosuppression if recurrent."
+    ],
+    "short_care_note": "Maintain oral hygiene; review inhaler technique if using steroids; seek care if spreading, painful swallowing, or immunocompromised."
+  },
+  "carcinoma": {
+    "doctor_type_patient_should_see": "Oncologist; organ-specific specialist",
+    "common_tests_to_discuss_with_clinician": [
+      "Site-directed imaging",
+      "biopsy and histopathology",
+      "CBC/CMP",
+      "staging CT/MRI/PET as appropriate."
+    ],
+    "short_care_note": "Specialist referral is required; avoid delaying biopsy/staging. Urgent care for bleeding, severe pain, jaundice, neurologic symptoms, or breathlessness."
+  },
+  "cardiomyopathy": {
+    "doctor_type_patient_should_see": "Cardiologist",
+    "common_tests_to_discuss_with_clinician": [
+      "ECG",
+      "echocardiogram",
+      "BNP/NT-proBNP",
+      "CBC/CMP/TSH",
+      "chest X-ray",
+      "cardiac MRI or coronary evaluation if indicated."
+    ],
+    "short_care_note": "Seek urgent care for chest pain, fainting, severe breathlessness, new swelling, or palpitations with dizziness."
+  },
+  "cellulitis": {
+    "doctor_type_patient_should_see": "Primary care; emergency medicine if severe; infectious disease if recurrent/complicated",
+    "common_tests_to_discuss_with_clinician": [
+      "Usually clinical",
+      "CBC/CRP if severe",
+      "blood cultures if systemically unwell",
+      "ultrasound if abscess/DVT concern",
+      "wound culture if drainage."
+    ],
+    "short_care_note": "Mark spreading redness; elevate limb; seek urgent care for fever, rapidly spreading redness, severe pain, confusion, or diabetes/immunosuppression."
+  },
+  "cholecystitis": {
+    "doctor_type_patient_should_see": "General surgeon; gastroenterologist",
+    "common_tests_to_discuss_with_clinician": [
+      "Right upper quadrant ultrasound",
+      "CBC",
+      "liver function tests",
+      "bilirubin",
+      "lipase",
+      "HIDA scan if unclear."
+    ],
+    "short_care_note": "Urgent assessment for right upper abdominal pain with fever, vomiting, or jaundice. Avoid heavy/fatty meals until reviewed."
+  },
+  "cholelithiasis biliary calculus": {
+    "doctor_type_patient_should_see": "Primary care; general surgeon or gastroenterologist if symptomatic",
+    "common_tests_to_discuss_with_clinician": [
+      "Right upper quadrant ultrasound",
+      "liver function tests",
+      "bilirubin",
+      "CBC if inflammation suspected",
+      "MRCP/ERCP if bile duct stone suspected."
+    ],
+    "short_care_note": "Seek urgent care for fever, jaundice, persistent right upper abdominal pain, or vomiting."
+  },
+  "chronic alcoholic intoxication": {
+    "doctor_type_patient_should_see": "Primary care; addiction medicine; psychiatrist; hepatologist if liver disease",
+    "common_tests_to_discuss_with_clinician": [
+      "Alcohol-use screening",
+      "CBC/CMP",
+      "liver enzymes",
+      "INR",
+      "hepatitis testing",
+      "thiamine/nutrition assessment",
+      "mental-health risk screen."
+    ],
+    "short_care_note": "Do not stop heavy alcohol abruptly without medical advice due withdrawal risk. Seek urgent care for confusion, seizures, vomiting blood, jaundice, or suicidal thoughts."
+  },
+  "chronic kidney failure": {
+    "doctor_type_patient_should_see": "Nephrologist; primary care for early CKD",
+    "common_tests_to_discuss_with_clinician": [
+      "Serum creatinine/eGFR",
+      "urine albumin-to-creatinine ratio",
+      "urinalysis",
+      "electrolytes",
+      "CBC",
+      "blood pressure",
+      "renal ultrasound if structural cause suspected."
+    ],
+    "short_care_note": "Control BP/diabetes, avoid NSAIDs unless clinician approves, review medicines, follow kidney diet advice. Urgent care for severe weakness, confusion, chest pain, or very low urine."
+  },
+  "chronic obstructive airway disease": {
+    "doctor_type_patient_should_see": "Primary care; pulmonologist for severe/recurrent exacerbations",
+    "common_tests_to_discuss_with_clinician": [
+      "Post-bronchodilator spirometry",
+      "pulse oximetry",
+      "chest X-ray",
+      "CBC",
+      "arterial/venous blood gas if severe",
+      "alpha-1 antitrypsin testing if indicated."
+    ],
+    "short_care_note": "Stop smoking, vaccines, inhaler technique, pulmonary rehab. Urgent care for severe breathlessness, blue lips, confusion, or low oxygen."
+  },
+  "cirrhosis": {
+    "doctor_type_patient_should_see": "Hepatologist/gastroenterologist",
+    "common_tests_to_discuss_with_clinician": [
+      "CBC",
+      "CMP/liver panel",
+      "INR",
+      "hepatitis testing",
+      "abdominal ultrasound",
+      "elastography",
+      "endoscopy for varices as directed",
+      "ultrasound + AFP every 6 months for HCC surveillance when indicated."
+    ],
+    "short_care_note": "Avoid alcohol, review medicines, vaccinate as advised. Urgent care for vomiting blood, black stool, confusion, severe abdominal swelling, fever, or jaundice."
+  },
+  "colitis": {
+    "doctor_type_patient_should_see": "Gastroenterologist; primary care or emergency if severe",
+    "common_tests_to_discuss_with_clinician": [
+      "CBC/CRP",
+      "stool culture/C. difficile testing",
+      "fecal calprotectin if inflammatory bowel disease suspected",
+      "colonoscopy/biopsy when indicated",
+      "CT if severe/complicated."
+    ],
+    "short_care_note": "Hydration; avoid anti-diarrheals if bloody diarrhea/fever unless clinician approves. Urgent care for dehydration, severe pain, blood, high fever."
+  },
+  "confusion": {
+    "doctor_type_patient_should_see": "Emergency medicine if sudden; primary care/neurology/psychiatry depending cause",
+    "common_tests_to_discuss_with_clinician": [
+      "Blood glucose",
+      "vitals/oxygen",
+      "CBC/CMP/electrolytes",
+      "urinalysis/culture",
+      "medication/toxicology review",
+      "CT brain if trauma/stroke signs."
+    ],
+    "short_care_note": "Sudden confusion is a red flag. Seek urgent care, especially with fever, weakness, headache, breathlessness, or fall."
+  },
+  "coronary arteriosclerosis ,coronary heart disease": {
+    "doctor_type_patient_should_see": "Cardiologist; primary care for risk management",
+    "common_tests_to_discuss_with_clinician": [
+      "ECG",
+      "lipid profile",
+      "A1C/glucose",
+      "stress test or coronary CT angiography as indicated",
+      "echocardiogram if symptoms/heart failure signs."
+    ],
+    "short_care_note": "Urgent care for chest pressure, shortness of breath, sweating, fainting, or pain radiating to arm/jaw/back. Manage BP, lipids, diabetes, smoking."
+  },
+  "deep vein thrombosis": {
+    "doctor_type_patient_should_see": "Primary care/vascular medicine; emergency if severe or pulmonary embolism symptoms",
+    "common_tests_to_discuss_with_clinician": [
+      "Compression venous ultrasound",
+      "D-dimer if low/intermediate risk",
+      "CBC/creatinine before anticoagulation",
+      "CT pulmonary angiography if PE suspected."
+    ],
+    "short_care_note": "Seek urgent care for leg swelling/pain plus chest pain, shortness of breath, coughing blood, or fainting. Do not massage affected leg."
+  },
+  "degenerative polyarthritis": {
+    "doctor_type_patient_should_see": "Primary care; rheumatologist if inflammatory uncertainty; orthopedic specialist for severe joint damage",
+    "common_tests_to_discuss_with_clinician": [
+      "Clinical exam",
+      "X-rays if diagnosis/severity unclear",
+      "CBC/ESR/CRP if inflammatory signs",
+      "joint aspiration if hot/swollen joint."
+    ],
+    "short_care_note": "Exercise within tolerance, weight management, physical therapy. Seek care for sudden hot swollen joint, fever, trauma, or inability to walk."
+  },
+  "deglutition disorder": {
+    "doctor_type_patient_should_see": "ENT, gastroenterologist, speech-language pathologist; emergency if choking/aspiration",
+    "common_tests_to_discuss_with_clinician": [
+      "Swallow evaluation",
+      "videofluoroscopic swallow study",
+      "barium swallow",
+      "endoscopy",
+      "neurologic evaluation if stroke/neuromuscular symptoms."
+    ],
+    "short_care_note": "Avoid unsafe foods until assessed; urgent care for choking, drooling, inability to swallow saliva, weight loss, or aspiration symptoms."
+  },
+  "dehydration": {
+    "doctor_type_patient_should_see": "Primary care; emergency if severe",
+    "common_tests_to_discuss_with_clinician": [
+      "Vitals/orthostatic BP",
+      "electrolytes",
+      "BUN/creatinine",
+      "urinalysis",
+      "glucose if diabetes concern."
+    ],
+    "short_care_note": "Use oral rehydration if mild and able to drink. Urgent care for confusion, fainting, very low urine, severe vomiting/diarrhea, or elderly/infant/pregnancy."
+  },
+  "delirium": {
+    "doctor_type_patient_should_see": "Emergency/internal medicine; geriatrician/neurologist/psychiatrist depending cause",
+    "common_tests_to_discuss_with_clinician": [
+      "Vitals/oxygen",
+      "glucose",
+      "CBC/CMP/electrolytes",
+      "urinalysis/culture",
+      "medication review",
+      "infection workup",
+      "CT brain if trauma/focal signs."
+    ],
+    "short_care_note": "Delirium is urgent, especially if sudden. Avoid restraints unless safety issue; ensure hydration, glasses/hearing aids; seek same-day care."
+  },
+  "delusion": {
+    "doctor_type_patient_should_see": "Psychiatrist; emergency if unsafe or acute confusion",
+    "common_tests_to_discuss_with_clinician": [
+      "Mental status exam",
+      "suicide/violence risk assessment",
+      "substance/toxicology screen",
+      "CBC/CMP/TSH/B12 if new onset",
+      "neurologic workup if atypical."
+    ],
+    "short_care_note": "Do not argue aggressively with beliefs; keep environment calm. Emergency help if risk of harm, severe agitation, or sudden confusion."
+  },
+  "dementia": {
+    "doctor_type_patient_should_see": "Memory clinic, neurologist, geriatrician; primary care support",
+    "common_tests_to_discuss_with_clinician": [
+      "Cognitive assessment",
+      "functional history",
+      "CBC/CMP/TSH/B12",
+      "depression screen",
+      "medication review",
+      "brain imaging if indicated."
+    ],
+    "short_care_note": "Plan safety, driving/finance review, caregiver support, advance care planning. Urgent assessment if sudden change suggests delirium/stroke/infection."
+  },
+  "dependence": {
+    "doctor_type_patient_should_see": "Addiction medicine; psychiatrist; primary care",
+    "common_tests_to_discuss_with_clinician": [
+      "Substance-use assessment",
+      "mental-health/suicide risk screen",
+      "CBC/CMP/liver tests",
+      "infectious disease screening if injection risk",
+      "toxicology when indicated."
+    ],
+    "short_care_note": "Seek supervised withdrawal support; emergency care for overdose, severe withdrawal, seizures, confusion, or suicidal thoughts."
+  },
+  "depression mental , depressive disorder": {
+    "doctor_type_patient_should_see": "Primary care; psychiatrist/psychologist if moderate-severe, recurrent, bipolar features, psychosis, or suicide risk",
+    "common_tests_to_discuss_with_clinician": [
+      "Clinical depression assessment",
+      "suicide/self-harm risk assessment",
+      "consider TSH, CBC, B12, substance-use review if indicated."
+    ],
+    "short_care_note": "Seek urgent help for suicidal thoughts, inability to stay safe, psychosis, or severe self-neglect. Maintain follow-up and support network."
+  },
+  "diabetes": {
+    "doctor_type_patient_should_see": "Primary care/endocrinologist; diabetes educator/dietitian",
+    "common_tests_to_discuss_with_clinician": [
+      "A1C",
+      "fasting plasma glucose",
+      "oral glucose tolerance or random glucose if symptomatic",
+      "lipid panel",
+      "urine albumin-creatinine ratio",
+      "creatinine/eGFR",
+      "eye/foot exams."
+    ],
+    "short_care_note": "Follow glucose plan, diet/activity, medication adherence. Urgent care for vomiting, confusion, very high/low glucose, dehydration, or ketone symptoms."
+  },
+  "diverticulitis": {
+    "doctor_type_patient_should_see": "Primary care; gastroenterologist; surgeon if complicated",
+    "common_tests_to_discuss_with_clinician": [
+      "CBC/CRP",
+      "CT abdomen/pelvis if suspected acute diverticulitis",
+      "colonoscopy after recovery if indicated",
+      "urinalysis to exclude urinary cause."
+    ],
+    "short_care_note": "Seek urgent care for severe/worsening abdominal pain, fever, vomiting, bleeding, or inability to eat/drink."
+  },
+  "diverticulosis": {
+    "doctor_type_patient_should_see": "Primary care; gastroenterologist",
+    "common_tests_to_discuss_with_clinician": [
+      "Often found on colonoscopy or CT",
+      "CBC if bleeding/anemia",
+      "colon cancer screening as age/risk appropriate."
+    ],
+    "short_care_note": "High-fiber diet if advised, hydration, activity. Seek care for abdominal pain with fever, rectal bleeding, or black stool."
+  },
+  "edema pulmonary": {
+    "doctor_type_patient_should_see": "Emergency medicine/cardiologist/pulmonologist",
+    "common_tests_to_discuss_with_clinician": [
+      "Pulse oximetry",
+      "chest X-ray",
+      "ECG",
+      "BNP",
+      "echocardiogram",
+      "CBC/CMP",
+      "troponin if cardiac ischemia concern."
+    ],
+    "short_care_note": "Usually urgent/emergency if shortness of breath, frothy sputum, chest pain, or low oxygen. Sit upright and seek immediate medical care."
+  },
+  "effusion pericardial pericardial effusion body substance": {
+    "doctor_type_patient_should_see": "Cardiologist; emergency if tamponade symptoms",
+    "common_tests_to_discuss_with_clinician": [
+      "Echocardiogram",
+      "ECG",
+      "chest X-ray",
+      "CBC/CMP/inflammatory markers",
+      "troponin",
+      "CT/MRI if indicated",
+      "pericardiocentesis analysis if drained."
+    ],
+    "short_care_note": "Urgent care for chest pain, fainting, severe breathlessness, low BP, or rapid heart rate."
+  },
+  "embolism pulmonary": {
+    "doctor_type_patient_should_see": "Emergency medicine; pulmonologist/cardiologist/hematologist for follow-up",
+    "common_tests_to_discuss_with_clinician": [
+      "D-dimer if appropriate",
+      "CT pulmonary angiography",
+      "V/Q scan if CT not suitable",
+      "ECG",
+      "troponin/BNP if severe",
+      "leg ultrasound."
+    ],
+    "short_care_note": "Emergency if sudden shortness of breath, chest pain, coughing blood, fainting, or rapid heartbeat."
+  },
+  "emphysema pulmonary": {
+    "doctor_type_patient_should_see": "Pulmonologist; primary care",
+    "common_tests_to_discuss_with_clinician": [
+      "Spirometry",
+      "pulse oximetry",
+      "chest X-ray/CT if indicated",
+      "alpha-1 antitrypsin test if early/family history",
+      "blood gas if severe."
+    ],
+    "short_care_note": "Stop smoking, vaccines, inhaler adherence, pulmonary rehab. Urgent care for severe breathlessness, blue lips, confusion, or low oxygen."
+  },
+  "encephalopathy": {
+    "doctor_type_patient_should_see": "Emergency/internal medicine; neurologist; hepatologist/nephrologist depending cause",
+    "common_tests_to_discuss_with_clinician": [
+      "Glucose",
+      "CBC/CMP/electrolytes",
+      "liver/kidney tests",
+      "ammonia if liver disease",
+      "infection/toxicology workup",
+      "CT/MRI brain",
+      "EEG if seizure concern."
+    ],
+    "short_care_note": "Treat as urgent, especially with confusion, drowsiness, seizure, fever, or head injury."
+  },
+  "endocarditis": {
+    "doctor_type_patient_should_see": "Cardiologist; infectious disease specialist",
+    "common_tests_to_discuss_with_clinician": [
+      "Multiple blood cultures",
+      "echocardiography",
+      "CBC/CMP/CRP/ESR",
+      "ECG",
+      "imaging for complications as directed."
+    ],
+    "short_care_note": "Urgent evaluation for fever with heart murmur, IV drug use, prosthetic valve, or embolic signs. Do not delay medical care."
+  },
+  "epilepsy": {
+    "doctor_type_patient_should_see": "Neurologist/epilepsy specialist",
+    "common_tests_to_discuss_with_clinician": [
+      "Specialist assessment",
+      "EEG",
+      "brain MRI/CT when indicated",
+      "glucose/electrolytes",
+      "medication levels if on therapy."
+    ],
+    "short_care_note": "Avoid driving/swimming/heights until cleared; take medicines consistently. Emergency if seizure lasts >5 minutes, repeats, injury, pregnancy, or breathing difficulty."
+  },
+  "exanthema": {
+    "doctor_type_patient_should_see": "Primary care; dermatologist; infectious disease if febrile/travel/immunocompromised",
+    "common_tests_to_discuss_with_clinician": [
+      "Clinical exam",
+      "CBC/CRP if systemic",
+      "viral testing or throat swab if indicated",
+      "medication allergy review",
+      "biopsy if unclear."
+    ],
+    "short_care_note": "Seek urgent care for fever with stiff neck, breathing trouble, blistering rash, purple non-blanching rash, or mucosal involvement."
+  },
+  "failure heart": {
+    "doctor_type_patient_should_see": "Cardiologist; primary care for stable follow-up",
+    "common_tests_to_discuss_with_clinician": [
+      "BNP/NT-proBNP",
+      "ECG",
+      "echocardiogram",
+      "chest X-ray",
+      "CBC/CMP/TSH",
+      "kidney function/electrolytes."
+    ],
+    "short_care_note": "Monitor weight/swelling/breathlessness, limit salt if advised, take medicines. Urgent care for severe breathlessness, chest pain, fainting, or rapid worsening."
+  },
+  "failure heart congestive": {
+    "doctor_type_patient_should_see": "Cardiologist",
+    "common_tests_to_discuss_with_clinician": [
+      "BNP/NT-proBNP",
+      "ECG",
+      "echocardiogram",
+      "chest X-ray",
+      "CBC/CMP/electrolytes",
+      "ischemia evaluation if indicated."
+    ],
+    "short_care_note": "Daily weight if advised, medication adherence, low-salt plan. Emergency care for severe shortness of breath, pink frothy sputum, chest pain, or confusion."
+  },
+  "failure kidney": {
+    "doctor_type_patient_should_see": "Nephrologist; emergency/internal medicine if acute/severe",
+    "common_tests_to_discuss_with_clinician": [
+      "Creatinine/eGFR",
+      "electrolytes especially potassium",
+      "urinalysis",
+      "urine albumin/protein",
+      "renal ultrasound",
+      "CBC",
+      "acid-base testing if severe."
+    ],
+    "short_care_note": "Avoid NSAIDs unless approved, review medications, maintain follow-up. Emergency if low urine, severe weakness, chest pain, confusion, or high potassium symptoms."
+  },
+  "fibroid tumor": {
+    "doctor_type_patient_should_see": "Gynecologist",
+    "common_tests_to_discuss_with_clinician": [
+      "Pelvic exam",
+      "pelvic ultrasound",
+      "CBC/ferritin if heavy bleeding",
+      "MRI if planning complex treatment",
+      "pregnancy test if relevant."
+    ],
+    "short_care_note": "Seek care for heavy bleeding, anemia symptoms, pelvic pain, or fertility concerns. Emergency for soaking pads rapidly, fainting, or severe pain."
+  },
+  "gastritis": {
+    "doctor_type_patient_should_see": "Primary care; gastroenterologist if persistent/alarm signs",
+    "common_tests_to_discuss_with_clinician": [
+      "H. pylori testing",
+      "CBC if bleeding/anemia",
+      "stool occult blood if bleeding concern",
+      "upper endoscopy if alarm symptoms or persistent/recurrent."
+    ],
+    "short_care_note": "Avoid NSAIDs/alcohol if possible; seek urgent care for vomiting blood, black stools, severe pain, fainting, or weight loss."
+  },
+  "gastroenteritis": {
+    "doctor_type_patient_should_see": "Primary care; emergency if dehydration/severe illness",
+    "common_tests_to_discuss_with_clinician": [
+      "Usually clinical",
+      "electrolytes/creatinine if dehydration",
+      "stool PCR/culture if bloody diarrhea, severe fever, outbreak, travel, immunocompromised."
+    ],
+    "short_care_note": "Oral rehydration. Seek care for blood in stool, severe dehydration, persistent vomiting, confusion, high fever, or infants/elderly/pregnancy."
+  },
+  "gastroesophageal reflux disease": {
+    "doctor_type_patient_should_see": "Primary care; gastroenterologist if alarm symptoms or refractory",
+    "common_tests_to_discuss_with_clinician": [
+      "Clinical trial of therapy if typical/no alarm",
+      "upper endoscopy for alarm symptoms",
+      "ambulatory pH/impedance monitoring if diagnosis uncertain/refractory."
+    ],
+    "short_care_note": "Avoid late meals/triggers, elevate head of bed, weight management if relevant. Urgent care for chest pain, vomiting blood, black stool, progressive swallowing difficulty."
+  },
+  "glaucoma": {
+    "doctor_type_patient_should_see": "Ophthalmologist/optometrist with referral to ophthalmology",
+    "common_tests_to_discuss_with_clinician": [
+      "Eye pressure measurement",
+      "optic nerve exam",
+      "visual field testing",
+      "OCT",
+      "gonioscopy."
+    ],
+    "short_care_note": "Use eye drops as prescribed; urgent eye care for sudden eye pain, red eye, halos, nausea/vomiting, or sudden vision loss."
+  },
+  "gout": {
+    "doctor_type_patient_should_see": "Primary care; rheumatologist for recurrent/complex disease",
+    "common_tests_to_discuss_with_clinician": [
+      "Joint aspiration for crystals if uncertain",
+      "serum uric acid",
+      "kidney function",
+      "CBC/CRP if infection possible",
+      "X-ray/ultrasound if chronic."
+    ],
+    "short_care_note": "Seek urgent care for hot swollen joint with fever. Hydrate, avoid flare triggers, discuss urate-lowering therapy if recurrent."
+  },
+  "hemiparesis": {
+    "doctor_type_patient_should_see": "Emergency medicine; neurologist",
+    "common_tests_to_discuss_with_clinician": [
+      "Emergency brain CT/MRI",
+      "glucose",
+      "CBC/CMP/coagulation",
+      "ECG",
+      "vascular imaging if stroke suspected."
+    ],
+    "short_care_note": "Treat sudden one-sided weakness as possible stroke. Call emergency services; note onset time."
+  },
+  "hemorrhoids": {
+    "doctor_type_patient_should_see": "Primary care; gastroenterologist/colorectal surgeon if persistent/severe",
+    "common_tests_to_discuss_with_clinician": [
+      "Anorectal exam",
+      "anoscopy",
+      "CBC if bleeding",
+      "colonoscopy if age/risk/alarm symptoms or unclear bleeding source."
+    ],
+    "short_care_note": "Fiber, fluids, avoid straining. Seek care for heavy bleeding, black stool, dizziness, weight loss, or severe pain."
+  },
+  "hepatitis": {
+    "doctor_type_patient_should_see": "Primary care; hepatologist/gastroenterologist; infectious disease if viral",
+    "common_tests_to_discuss_with_clinician": [
+      "Liver panel",
+      "bilirubin",
+      "INR",
+      "CBC",
+      "hepatitis A/B/C serology",
+      "abdominal ultrasound",
+      "autoimmune/metabolic/toxin tests as indicated."
+    ],
+    "short_care_note": "Avoid alcohol and unnecessary hepatotoxic medicines; seek urgent care for jaundice with confusion, bleeding, severe abdominal pain, or persistent vomiting."
+  },
+  "hepatitis b": {
+    "doctor_type_patient_should_see": "Hepatologist/gastroenterologist; infectious disease specialist",
+    "common_tests_to_discuss_with_clinician": [
+      "HBsAg, anti-HBs, total/IgM anti-HBc",
+      "HBV DNA",
+      "HBeAg/anti-HBe",
+      "liver panel",
+      "INR",
+      "ultrasound/AFP surveillance if chronic/high-risk."
+    ],
+    "short_care_note": "Avoid alcohol, prevent transmission, vaccinate contacts if indicated, follow specialist monitoring. Urgent care for severe jaundice, confusion, bleeding."
+  },
+  "hepatitis c": {
+    "doctor_type_patient_should_see": "Hepatologist/gastroenterologist; infectious disease specialist",
+    "common_tests_to_discuss_with_clinician": [
+      "HCV antibody with reflex HCV RNA/NAT",
+      "genotype if needed",
+      "liver fibrosis assessment",
+      "liver panel",
+      "hepatitis B/HIV testing."
+    ],
+    "short_care_note": "Curative antiviral treatment is available; avoid alcohol; prevent blood exposure. Urgent care for decompensated liver symptoms."
+  },
+  "hernia": {
+    "doctor_type_patient_should_see": "General surgeon; primary care for initial evaluation",
+    "common_tests_to_discuss_with_clinician": [
+      "Clinical exam",
+      "ultrasound or CT if uncertain/complex",
+      "CBC if strangulation/infection concern."
+    ],
+    "short_care_note": "Urgent care for painful irreducible lump, vomiting, abdominal distension, fever, or skin color change over hernia."
+  },
+  "hernia hiatal": {
+    "doctor_type_patient_should_see": "Primary care; gastroenterologist; surgeon if severe/refractory/complicated",
+    "common_tests_to_discuss_with_clinician": [
+      "Upper endoscopy",
+      "barium swallow",
+      "esophageal pH/manometry if reflux surgery considered",
+      "CBC if bleeding/anemia."
+    ],
+    "short_care_note": "GERD lifestyle measures; seek urgent care for chest pain, vomiting blood, black stool, severe swallowing trouble."
+  },
+  "hyperbilirubinemia": {
+    "doctor_type_patient_should_see": "Primary care; hepatologist/gastroenterologist",
+    "common_tests_to_discuss_with_clinician": [
+      "Total/direct bilirubin",
+      "liver enzymes",
+      "CBC/hemolysis labs",
+      "hepatitis tests",
+      "abdominal ultrasound",
+      "MRCP/CT if obstruction suspected."
+    ],
+    "short_care_note": "Seek urgent care for jaundice with fever, severe abdominal pain, confusion, bleeding, or very dark urine/pale stool."
+  },
+  "hypercholesterolemia": {
+    "doctor_type_patient_should_see": "Primary care; cardiologist/lipid specialist for very high/familial/ASCVD",
+    "common_tests_to_discuss_with_clinician": [
+      "Fasting or nonfasting lipid panel",
+      "A1C/glucose",
+      "TSH if secondary cause",
+      "liver/kidney function before/while therapy as needed."
+    ],
+    "short_care_note": "Heart-healthy diet, physical activity, smoking cessation, medication adherence. Urgent care for chest pain/stroke symptoms."
+  },
+  "hyperglycemia": {
+    "doctor_type_patient_should_see": "Primary care/endocrinologist; emergency if severe with dehydration/ketones",
+    "common_tests_to_discuss_with_clinician": [
+      "Fingerstick/plasma glucose",
+      "A1C",
+      "urine/serum ketones if symptomatic",
+      "electrolytes/creatinine",
+      "urinalysis."
+    ],
+    "short_care_note": "Follow diabetes sick-day plan. Urgent care for vomiting, dehydration, confusion, rapid breathing, or ketones/high glucose."
+  },
+  "hyperlipidemia": {
+    "doctor_type_patient_should_see": "Primary care; cardiologist/lipid specialist if severe/familial",
+    "common_tests_to_discuss_with_clinician": [
+      "Lipid panel",
+      "A1C/glucose",
+      "TSH if indicated",
+      "liver/kidney function",
+      "ASCVD risk assessment."
+    ],
+    "short_care_note": "Lifestyle plus medication if prescribed; manage BP/diabetes/smoking. Emergency for heart attack/stroke symptoms."
+  },
+  "hypertension pulmonary": {
+    "doctor_type_patient_should_see": "Pulmonologist/cardiologist; pulmonary hypertension center if confirmed",
+    "common_tests_to_discuss_with_clinician": [
+      "Echocardiogram",
+      "ECG",
+      "chest imaging",
+      "pulmonary function tests",
+      "V/Q scan/CT angiography if thromboembolic disease suspected",
+      "right-heart catheterization for confirmation."
+    ],
+    "short_care_note": "Urgent care for fainting, chest pain, severe breathlessness, blue lips, or rapid swelling."
+  },
+  "hypertensive disease": {
+    "doctor_type_patient_should_see": "Primary care; cardiologist/nephrologist if resistant/complicated",
+    "common_tests_to_discuss_with_clinician": [
+      "Repeated BP measurements/home or ambulatory monitoring",
+      "BMP/creatinine/electrolytes",
+      "urinalysis/albumin",
+      "lipid panel",
+      "A1C",
+      "ECG."
+    ],
+    "short_care_note": "Take medicines consistently, reduce salt, monitor BP. Emergency for chest pain, severe headache with neurologic symptoms, shortness of breath, or confusion."
+  },
+  "hypoglycemia": {
+    "doctor_type_patient_should_see": "Primary care/endocrinologist; emergency if severe/recurrent",
+    "common_tests_to_discuss_with_clinician": [
+      "Fingerstick/plasma glucose during symptoms",
+      "medication review",
+      "A1C",
+      "renal/liver function",
+      "endocrine tests if unexplained."
+    ],
+    "short_care_note": "Treat promptly with fast sugar if awake and able; emergency help for confusion, seizure, unconsciousness, or inability to swallow."
+  },
+  "hypothyroidism": {
+    "doctor_type_patient_should_see": "Primary care; endocrinologist if pregnancy, severe, complex, or unstable",
+    "common_tests_to_discuss_with_clinician": [
+      "TSH",
+      "free T4",
+      "thyroid antibodies if autoimmune suspected",
+      "lipid panel",
+      "CBC if anemia symptoms."
+    ],
+    "short_care_note": "Take thyroid medicine consistently if prescribed; urgent care for severe drowsiness, hypothermia, confusion, or breathing difficulty."
+  },
+  "ileus": {
+    "doctor_type_patient_should_see": "Emergency/internal medicine; general surgeon/gastroenterologist",
+    "common_tests_to_discuss_with_clinician": [
+      "Abdominal X-ray/CT",
+      "electrolytes",
+      "CBC",
+      "kidney function",
+      "medication review",
+      "lactate if ischemia/sepsis concern."
+    ],
+    "short_care_note": "Urgent care for vomiting, abdominal distension, severe pain, fever, or inability to pass gas/stool."
+  },
+  "incontinence": {
+    "doctor_type_patient_should_see": "Primary care; urologist/urogynecologist; neurologist if neurologic signs",
+    "common_tests_to_discuss_with_clinician": [
+      "Urinalysis",
+      "bladder diary",
+      "post-void residual",
+      "pelvic exam/prostate evaluation",
+      "urodynamics if complex."
+    ],
+    "short_care_note": "Seek care for new incontinence with back pain, weakness/numbness, fever, blood in urine, or urinary retention."
+  },
+  "infection": {
+    "doctor_type_patient_should_see": "Primary care; emergency/infectious disease if severe",
+    "common_tests_to_discuss_with_clinician": [
+      "Vitals",
+      "CBC/CMP",
+      "CRP/procalcitonin if used locally",
+      "cultures from likely source",
+      "urinalysis",
+      "chest X-ray or imaging as indicated."
+    ],
+    "short_care_note": "Seek urgent care for sepsis signs: confusion, shortness of breath, clammy skin, extreme pain, fever/low temperature, weak pulse, or low urine."
+  },
+  "infection urinary tract": {
+    "doctor_type_patient_should_see": "Primary care; urologist/nephrologist if recurrent, complicated, male, pregnancy, kidney involvement",
+    "common_tests_to_discuss_with_clinician": [
+      "Urinalysis",
+      "urine culture if complicated/recurrent/pregnancy/pyelonephritis",
+      "pregnancy test if relevant",
+      "creatinine/CBC if febrile or kidney infection suspected."
+    ],
+    "short_care_note": "Hydrate; seek urgent care for fever, flank pain, vomiting, pregnancy, confusion, or symptoms in men/elderly/children."
+  },
+  "influenza": {
+    "doctor_type_patient_should_see": "Primary care; emergency if high-risk/severe",
+    "common_tests_to_discuss_with_clinician": [
+      "Rapid influenza molecular/antigen testing if results change management",
+      "pulse oximetry if respiratory symptoms",
+      "chest X-ray if pneumonia suspected."
+    ],
+    "short_care_note": "Rest, fluids, isolate; consider antiviral early for high-risk or severe illness. Urgent care for breathing difficulty, chest pain, confusion, dehydration, or worsening after improvement."
+  },
+  "insufficiency renal": {
+    "doctor_type_patient_should_see": "Nephrologist; primary care if mild/stable",
+    "common_tests_to_discuss_with_clinician": [
+      "Creatinine/eGFR",
+      "electrolytes",
+      "urinalysis",
+      "urine albumin-creatinine ratio",
+      "renal ultrasound if indicated",
+      "medication review."
+    ],
+    "short_care_note": "Avoid nephrotoxic medicines unless approved; monitor BP/diabetes; urgent care for low urine, confusion, severe weakness, or chest symptoms."
+  },
+  "ischemia": {
+    "doctor_type_patient_should_see": "Depends on site: cardiologist, neurologist, vascular surgeon; emergency if acute",
+    "common_tests_to_discuss_with_clinician": [
+      "Site-directed testing: ECG/troponin for cardiac, brain imaging for neurologic, vascular ultrasound/CTA for limb/organ",
+      "CBC/CMP/coagulation."
+    ],
+    "short_care_note": "Acute chest pain, stroke symptoms, cold painful limb, or severe abdominal pain are emergencies."
+  },
+  "ketoacidosis diabetic": {
+    "doctor_type_patient_should_see": "Emergency medicine/endocrinologist",
+    "common_tests_to_discuss_with_clinician": [
+      "Glucose",
+      "serum/urine ketones or beta-hydroxybutyrate",
+      "electrolytes/anion gap",
+      "venous/arterial blood gas",
+      "creatinine",
+      "infection trigger workup."
+    ],
+    "short_care_note": "Medical emergency. Seek immediate care for vomiting, abdominal pain, deep/rapid breathing, confusion, dehydration, or high ketones."
+  },
+  "kidney disease": {
+    "doctor_type_patient_should_see": "Primary care; nephrologist if reduced eGFR, albuminuria, hematuria, rapid decline, or advanced CKD",
+    "common_tests_to_discuss_with_clinician": [
+      "Creatinine/eGFR",
+      "urine albumin-creatinine ratio",
+      "urinalysis",
+      "electrolytes",
+      "CBC",
+      "renal ultrasound if structural disease suspected."
+    ],
+    "short_care_note": "Control BP/diabetes, review medications, avoid NSAIDs if risky. Urgent care for low urine, severe weakness, confusion, chest pain."
+  },
+  "kidney failure acute": {
+    "doctor_type_patient_should_see": "Emergency/internal medicine; nephrologist",
+    "common_tests_to_discuss_with_clinician": [
+      "Creatinine/eGFR",
+      "electrolytes especially potassium",
+      "urinalysis",
+      "urine output monitoring",
+      "renal ultrasound",
+      "medication/toxin review."
+    ],
+    "short_care_note": "Urgent evaluation, especially with low urine, dehydration, infection, high potassium symptoms, or swelling/breathlessness."
+  },
+  "lymphatic diseases": {
+    "doctor_type_patient_should_see": "Primary care; hematologist/oncologist, infectious disease, or vascular/lymphedema specialist depending cause",
+    "common_tests_to_discuss_with_clinician": [
+      "CBC",
+      "inflammatory markers",
+      "ultrasound/CT of lymph nodes if persistent",
+      "biopsy if concerning",
+      "infection tests as indicated."
+    ],
+    "short_care_note": "Seek care for persistent enlarging nodes, fever/night sweats/weight loss, redness/pain, or limb swelling."
+  },
+  "lymphoma": {
+    "doctor_type_patient_should_see": "Hematologist-oncologist",
+    "common_tests_to_discuss_with_clinician": [
+      "CBC",
+      "LDH/CMP",
+      "excisional/core lymph node biopsy",
+      "flow cytometry/immunohistochemistry",
+      "PET/CT or CT staging",
+      "bone marrow tests if indicated."
+    ],
+    "short_care_note": "Specialist evaluation required. Seek urgent care for airway compression, high fever, severe weakness, bleeding, or rapid swelling."
+  },
+  "malignant neoplasm of breast carcinoma breast": {
+    "doctor_type_patient_should_see": "Breast surgeon; medical oncologist; radiation oncologist",
+    "common_tests_to_discuss_with_clinician": [
+      "Diagnostic mammogram/ultrasound",
+      "core needle biopsy",
+      "receptor testing ER/PR/HER2",
+      "breast MRI/staging imaging if indicated."
+    ],
+    "short_care_note": "Do not delay breast clinic referral for lump, nipple change, skin dimpling, or bloody discharge. Follow oncology plan."
+  },
+  "malignant neoplasm of lung carcinoma of lung": {
+    "doctor_type_patient_should_see": "Pulmonologist; thoracic oncologist; thoracic surgeon",
+    "common_tests_to_discuss_with_clinician": [
+      "Chest CT",
+      "PET/CT",
+      "tissue biopsy via bronchoscopy/CT-guided method",
+      "pulmonary function tests",
+      "molecular testing if cancer confirmed."
+    ],
+    "short_care_note": "Urgent evaluation for coughing blood, unexplained weight loss, persistent cough, chest pain, or breathlessness."
+  },
+  "malignant neoplasm of prostate carcinoma prostate": {
+    "doctor_type_patient_should_see": "Urologist; medical/radiation oncologist",
+    "common_tests_to_discuss_with_clinician": [
+      "PSA",
+      "digital rectal exam",
+      "prostate MRI",
+      "prostate biopsy if indicated",
+      "staging scans based on risk."
+    ],
+    "short_care_note": "Discuss risks/benefits of testing and treatment. Urgent care for urinary retention, bone pain with weakness, or blood in urine."
+  },
+  "malignant neoplasms": {
+    "doctor_type_patient_should_see": "Oncologist; organ-specific specialist",
+    "common_tests_to_discuss_with_clinician": [
+      "Site-directed imaging",
+      "biopsy/pathology",
+      "CBC/CMP",
+      "staging CT/MRI/PET as appropriate",
+      "molecular tests where indicated."
+    ],
+    "short_care_note": "Needs timely specialist evaluation; urgent care for severe pain, bleeding, breathlessness, neurologic deficit, or rapid decline."
+  },
+  "malignant neoplasms primary malignant neoplasm": {
+    "doctor_type_patient_should_see": "Oncologist; organ-specific specialist",
+    "common_tests_to_discuss_with_clinician": [
+      "Biopsy/pathology",
+      "site-directed imaging",
+      "staging scans",
+      "CBC/CMP",
+      "tumor-specific markers only when appropriate."
+    ],
+    "short_care_note": "Confirm with tissue diagnosis and staging; seek urgent care for red-flag symptoms or rapid deterioration."
+  },
+  "malignant tumor of colon carcinoma colon": {
+    "doctor_type_patient_should_see": "Gastroenterologist; colorectal surgeon; oncologist",
+    "common_tests_to_discuss_with_clinician": [
+      "Colonoscopy with biopsy",
+      "CBC/iron studies if anemia",
+      "CT chest/abdomen/pelvis staging",
+      "CEA baseline if confirmed."
+    ],
+    "short_care_note": "Do not delay evaluation for rectal bleeding, iron-deficiency anemia, bowel habit change, or weight loss."
+  },
+  "manic disorder": {
+    "doctor_type_patient_should_see": "Psychiatrist; emergency if unsafe/psychotic",
+    "common_tests_to_discuss_with_clinician": [
+      "Psychiatric assessment",
+      "suicide/violence risk assessment",
+      "substance/toxicology screen",
+      "TSH/CBC/CMP if new episode",
+      "medication review."
+    ],
+    "short_care_note": "Urgent assessment if reduced sleep, risky behavior, psychosis, aggression, or suicidal thoughts. Avoid alcohol/drugs."
+  },
+  "melanoma": {
+    "doctor_type_patient_should_see": "Dermatologist; surgical oncologist/oncologist if confirmed",
+    "common_tests_to_discuss_with_clinician": [
+      "Full skin exam",
+      "excisional biopsy of suspicious lesion",
+      "sentinel lymph node biopsy/staging imaging depending stage."
+    ],
+    "short_care_note": "Urgent dermatology review for changing/asymmetric/dark/bleeding mole. Sun protection and skin checks."
+  },
+  "migraine disorders": {
+    "doctor_type_patient_should_see": "Primary care; neurologist if atypical, frequent, or disabling",
+    "common_tests_to_discuss_with_clinician": [
+      "Usually clinical",
+      "neuroimaging if red flags such as sudden worst headache, neurologic deficit, cancer/immunosuppression, trauma."
+    ],
+    "short_care_note": "Track triggers, hydration/sleep, medication plan. Emergency care for sudden worst headache, weakness, confusion, fever/stiff neck, or vision loss."
+  },
+  "mitral valve insufficiency": {
+    "doctor_type_patient_should_see": "Cardiologist; cardiac surgeon/valve clinic if severe",
+    "common_tests_to_discuss_with_clinician": [
+      "Echocardiogram",
+      "ECG",
+      "chest X-ray if symptomatic",
+      "BNP if heart failure symptoms",
+      "cardiac MRI/catheterization if intervention planning."
+    ],
+    "short_care_note": "Follow cardiology monitoring. Seek urgent care for severe breathlessness, chest pain, fainting, rapid worsening swelling, or palpitations with dizziness."
+  },
+  "myocardial infarction": {
+    "doctor_type_patient_should_see": "Emergency medicine immediately; cardiologist",
+    "common_tests_to_discuss_with_clinician": [
+      "ECG urgently",
+      "serial troponins",
+      "CBC/CMP/electrolytes",
+      "chest X-ray if needed",
+      "coronary angiography or CT/stress testing as cardiology directs."
+    ],
+    "short_care_note": "Medical emergency if chest pressure/pain, shortness of breath, sweating, nausea, fainting, or pain to arm/jaw/back. Call emergency services; do not drive yourself."
+  },
+  "neoplasm": {
+    "doctor_type_patient_should_see": "Oncologist or organ-specific specialist; primary care for initial referral",
+    "common_tests_to_discuss_with_clinician": [
+      "Site-directed imaging",
+      "biopsy/pathology when indicated",
+      "CBC/CMP",
+      "tumor markers only when appropriate",
+      "staging scans if malignant."
+    ],
+    "short_care_note": "Needs clinician review to determine benign vs malignant and site. Seek urgent care for bleeding, severe pain, neurologic symptoms, breathlessness, or rapid growth."
+  },
+  "neoplasm metastasis": {
+    "doctor_type_patient_should_see": "Medical oncologist; palliative/supportive care team as needed; organ-specific specialist",
+    "common_tests_to_discuss_with_clinician": [
+      "Staging CT/MRI/PET",
+      "biopsy or molecular testing if needed",
+      "CBC/CMP",
+      "organ-function tests",
+      "symptom-directed imaging such as bone scan/brain MRI."
+    ],
+    "short_care_note": "Specialist oncology care is needed. Urgent care for severe pain, weakness/numbness, confusion, breathlessness, jaundice, or inability to eat/drink."
+  },
+  "neuropathy": {
+    "doctor_type_patient_should_see": "Primary care; neurologist; endocrinologist if diabetic",
+    "common_tests_to_discuss_with_clinician": [
+      "A1C/glucose",
+      "B12",
+      "TSH",
+      "CBC/CMP",
+      "renal/liver tests",
+      "nerve conduction/EMG if unclear or progressive."
+    ],
+    "short_care_note": "Foot care if diabetic; seek urgent care for rapid weakness, loss of bladder/bowel control, or one-sided stroke symptoms."
+  },
+  "neutropenia": {
+    "doctor_type_patient_should_see": "Hematologist; emergency if fever",
+    "common_tests_to_discuss_with_clinician": [
+      "CBC with differential",
+      "repeat CBC",
+      "peripheral smear",
+      "infection workup if febrile",
+      "medication review",
+      "B12/folate/viral testing as indicated."
+    ],
+    "short_care_note": "Fever with neutropenia is an emergency. Avoid sick contacts and follow clinician infection precautions."
+  },
+  "obesity": {
+    "doctor_type_patient_should_see": "Primary care; dietitian; endocrinologist/bariatric specialist if severe or complications",
+    "common_tests_to_discuss_with_clinician": [
+      "BMI/waist",
+      "blood pressure",
+      "A1C/glucose",
+      "lipid panel",
+      "liver enzymes",
+      "sleep apnea screening if symptoms."
+    ],
+    "short_care_note": "Gradual lifestyle plan and comorbidity screening. Seek care for chest pain, breathlessness, severe depression, or mobility limitation."
+  },
+  "obesity morbid": {
+    "doctor_type_patient_should_see": "Primary care; obesity medicine/bariatric specialist; dietitian; endocrinologist if metabolic disease",
+    "common_tests_to_discuss_with_clinician": [
+      "A1C/glucose",
+      "lipid panel",
+      "liver enzymes",
+      "kidney function",
+      "sleep apnea evaluation",
+      "BP and cardiovascular risk assessment."
+    ],
+    "short_care_note": "Needs structured, supervised weight-management plan; urgent care for chest pain, severe breathlessness, or sudden leg swelling."
+  },
+  "osteomyelitis": {
+    "doctor_type_patient_should_see": "Infectious disease; orthopedic surgeon; wound/diabetes care if relevant",
+    "common_tests_to_discuss_with_clinician": [
+      "CBC/ESR/CRP",
+      "blood/wound cultures",
+      "X-ray",
+      "MRI preferred if suspected",
+      "bone biopsy/culture if needed."
+    ],
+    "short_care_note": "Needs timely medical care; urgent if fever, severe pain, diabetic foot wound, spreading redness, or sepsis signs."
+  },
+  "osteoporosis": {
+    "doctor_type_patient_should_see": "Primary care; endocrinologist/rheumatologist for complex cases",
+    "common_tests_to_discuss_with_clinician": [
+      "DEXA bone density",
+      "calcium/vitamin D",
+      "renal function",
+      "TSH/PTH if secondary cause suspected",
+      "fracture imaging if pain/height loss."
+    ],
+    "short_care_note": "Fall prevention, calcium/vitamin D as advised, weight-bearing exercise. Seek care after any low-trauma fracture."
+  },
+  "overload fluid": {
+    "doctor_type_patient_should_see": "Primary care/internal medicine; cardiologist/nephrologist depending cause",
+    "common_tests_to_discuss_with_clinician": [
+      "Weight/vitals",
+      "electrolytes/creatinine",
+      "BNP",
+      "chest X-ray",
+      "urinalysis",
+      "echocardiogram if heart failure suspected."
+    ],
+    "short_care_note": "Urgent care for shortness of breath, chest pain, confusion, rapid swelling, or low oxygen."
+  },
+  "pancreatitis": {
+    "doctor_type_patient_should_see": "Gastroenterologist; emergency/surgeon if severe/complicated",
+    "common_tests_to_discuss_with_clinician": [
+      "Serum lipase/amylase",
+      "CBC/CMP",
+      "liver tests",
+      "triglycerides",
+      "calcium",
+      "abdominal ultrasound",
+      "CT if diagnosis unclear or not improving."
+    ],
+    "short_care_note": "Urgent evaluation for severe upper abdominal pain, persistent vomiting, fever, jaundice, or dehydration."
+  },
+  "pancytopenia": {
+    "doctor_type_patient_should_see": "Hematologist",
+    "common_tests_to_discuss_with_clinician": [
+      "CBC with differential",
+      "peripheral smear",
+      "reticulocyte count",
+      "B12/folate/iron",
+      "liver/spleen evaluation",
+      "viral tests",
+      "bone marrow biopsy if indicated."
+    ],
+    "short_care_note": "Seek urgent care for fever, bleeding, severe weakness, shortness of breath, or infection signs."
+  },
+  "paranoia": {
+    "doctor_type_patient_should_see": "Psychiatrist; emergency if unsafe",
+    "common_tests_to_discuss_with_clinician": [
+      "Mental status exam",
+      "risk assessment",
+      "substance/toxicology screen",
+      "CBC/CMP/TSH if new onset",
+      "neurologic workup if sudden/atypical."
+    ],
+    "short_care_note": "Keep environment calm; urgent help if threats, weapons, self-harm risk, severe agitation, or confusion."
+  },
+  "parkinson disease": {
+    "doctor_type_patient_should_see": "Neurologist/movement disorder specialist",
+    "common_tests_to_discuss_with_clinician": [
+      "Clinical neurologic exam",
+      "medication review",
+      "brain imaging only if atypical features",
+      "therapy assessments for mobility/swallowing as needed."
+    ],
+    "short_care_note": "Exercise/physiotherapy, fall prevention, medication adherence. Seek care for swallowing problems, falls, hallucinations, or sudden worsening."
+  },
+  "paroxysmal dyspnea": {
+    "doctor_type_patient_should_see": "Primary care; cardiologist/pulmonologist depending cause",
+    "common_tests_to_discuss_with_clinician": [
+      "Pulse oximetry",
+      "ECG",
+      "chest X-ray",
+      "BNP",
+      "spirometry",
+      "CBC",
+      "echocardiogram if heart failure suspected."
+    ],
+    "short_care_note": "Urgent care for severe breathlessness, chest pain, blue lips, fainting, or symptoms at rest."
+  },
+  "peripheral vascular disease": {
+    "doctor_type_patient_should_see": "Vascular surgeon/vascular medicine; primary care for risk reduction",
+    "common_tests_to_discuss_with_clinician": [
+      "Ankle-brachial index",
+      "vascular ultrasound/CTA/MRA if severe",
+      "lipid/A1C",
+      "kidney function",
+      "wound assessment."
+    ],
+    "short_care_note": "Stop smoking, walking program if advised, foot care. Urgent care for cold/painful limb, sudden weakness, nonhealing wounds, or black toes."
+  },
+  "personality disorder": {
+    "doctor_type_patient_should_see": "Psychiatrist; psychologist/psychotherapist",
+    "common_tests_to_discuss_with_clinician": [
+      "Comprehensive psychiatric assessment",
+      "suicide/self-harm risk assessment",
+      "substance-use screen",
+      "comorbidity screening."
+    ],
+    "short_care_note": "Long-term psychotherapy and crisis plan can help. Urgent care for self-harm risk, suicidal thoughts, violence risk, or severe crisis."
+  },
+  "pneumocystis carinii pneumonia": {
+    "doctor_type_patient_should_see": "Infectious disease specialist; pulmonologist; HIV specialist",
+    "common_tests_to_discuss_with_clinician": [
+      "Oxygen saturation/ABG",
+      "chest X-ray/CT",
+      "LDH",
+      "induced sputum or bronchoscopy testing",
+      "HIV test/CD4 count if status unknown."
+    ],
+    "short_care_note": "Urgent care for shortness of breath, low oxygen, fever, or immunocompromised state."
+  },
+  "pneumonia": {
+    "doctor_type_patient_should_see": "Primary care; pulmonologist or emergency if severe/high-risk",
+    "common_tests_to_discuss_with_clinician": [
+      "Pulse oximetry",
+      "chest X-ray",
+      "CBC",
+      "sputum culture/blood cultures if severe/hospitalized",
+      "viral testing when relevant."
+    ],
+    "short_care_note": "Seek urgent care for shortness of breath, chest pain, confusion, blue lips, low oxygen, dehydration, or high-risk age/conditions."
+  },
+  "pneumonia aspiration": {
+    "doctor_type_patient_should_see": "Primary care/pulmonologist; speech-language pathologist if swallowing issue",
+    "common_tests_to_discuss_with_clinician": [
+      "Pulse oximetry",
+      "chest X-ray",
+      "CBC",
+      "sputum cultures if severe",
+      "swallow evaluation if recurrent",
+      "CT if unclear."
+    ],
+    "short_care_note": "Urgent care for fever with breathing difficulty, choking episodes, confusion, or low oxygen. Avoid unsafe eating until swallow assessed."
+  },
+  "pneumothorax": {
+    "doctor_type_patient_should_see": "Emergency medicine; pulmonologist/thoracic surgeon",
+    "common_tests_to_discuss_with_clinician": [
+      "Chest X-ray",
+      "ultrasound or CT if needed",
+      "pulse oximetry",
+      "ABG if severe."
+    ],
+    "short_care_note": "Emergency if sudden chest pain or shortness of breath. Avoid flying/diving until medically cleared."
+  },
+  "primary carcinoma of the liver cells": {
+    "doctor_type_patient_should_see": "Hepatologist; oncologist; hepatobiliary surgeon",
+    "common_tests_to_discuss_with_clinician": [
+      "Liver ultrasound/CT/MRI",
+      "AFP",
+      "liver panel/INR",
+      "hepatitis B/C testing",
+      "staging imaging",
+      "biopsy if imaging not diagnostic."
+    ],
+    "short_care_note": "Specialist referral; manage cirrhosis/hepatitis risks. Urgent care for jaundice, confusion, vomiting blood, severe abdominal swelling."
+  },
+  "psychotic disorder": {
+    "doctor_type_patient_should_see": "Psychiatrist; emergency if acute/unsafe",
+    "common_tests_to_discuss_with_clinician": [
+      "Mental status exam",
+      "risk assessment",
+      "substance/toxicology screen",
+      "CBC/CMP/TSH/B12 if new onset",
+      "neurologic tests if atypical."
+    ],
+    "short_care_note": "Early specialist care is important. Emergency help if danger to self/others, command hallucinations, severe agitation, or confusion."
+  },
+  "pyelonephritis": {
+    "doctor_type_patient_should_see": "Primary care/emergency; urologist/nephrologist if complicated",
+    "common_tests_to_discuss_with_clinician": [
+      "Urinalysis",
+      "urine culture",
+      "CBC/CMP/creatinine",
+      "blood cultures if severe",
+      "imaging if obstruction, recurrent, or not improving."
+    ],
+    "short_care_note": "Urgent care for fever/flank pain, vomiting, pregnancy, confusion, or sepsis signs."
+  },
+  "respiratory failure": {
+    "doctor_type_patient_should_see": "Emergency medicine; pulmonologist/critical care",
+    "common_tests_to_discuss_with_clinician": [
+      "Pulse oximetry",
+      "arterial/venous blood gas",
+      "chest X-ray/CT",
+      "CBC/CMP",
+      "ECG",
+      "cause-directed tests."
+    ],
+    "short_care_note": "Medical emergency. Seek immediate care for severe breathlessness, confusion, blue lips, exhaustion, or low oxygen."
+  },
+  "schizophrenia": {
+    "doctor_type_patient_should_see": "Psychiatrist; community mental health team",
+    "common_tests_to_discuss_with_clinician": [
+      "Comprehensive psychiatric assessment",
+      "suicide/violence risk assessment",
+      "substance-use screen",
+      "baseline metabolic labs if medication started."
+    ],
+    "short_care_note": "Ongoing psychiatric care and family/support involvement. Emergency care for self-harm risk, command hallucinations, severe agitation, or inability to care for self."
+  },
+  "septicemia systemic infection sepsis (invertebrate)": {
+    "doctor_type_patient_should_see": "Emergency medicine; infectious disease/critical care",
+    "common_tests_to_discuss_with_clinician": [
+      "Blood cultures",
+      "lactate",
+      "CBC/CMP",
+      "coagulation",
+      "urinalysis/culture",
+      "chest X-ray",
+      "source imaging/cultures",
+      "vitals/organ function monitoring."
+    ],
+    "short_care_note": "Medical emergency. Seek immediate care for confusion, fast breathing, low BP, fever/low temperature, clammy skin, extreme pain, or low urine."
+  },
+  "sickle cell anemia": {
+    "doctor_type_patient_should_see": "Hematologist; primary care; emergency for crisis complications",
+    "common_tests_to_discuss_with_clinician": [
+      "CBC/reticulocyte count",
+      "hemoglobin electrophoresis if diagnosis uncertain",
+      "bilirubin/LDH",
+      "oxygen saturation",
+      "infection workup during fever."
+    ],
+    "short_care_note": "Hydration, avoid triggers, vaccines/follow-up. Emergency for fever, chest pain, shortness of breath, stroke symptoms, severe pain, or priapism."
+  },
+  "spasm bronchial": {
+    "doctor_type_patient_should_see": "Primary care; pulmonologist/allergist",
+    "common_tests_to_discuss_with_clinician": [
+      "Spirometry/peak flow",
+      "pulse oximetry during episode",
+      "allergy/asthma evaluation",
+      "chest X-ray if atypical."
+    ],
+    "short_care_note": "Use prescribed rescue inhaler; avoid triggers. Emergency for severe wheeze, inability to speak, blue lips, or poor response to inhaler."
+  },
+  "stenosis aortic valve": {
+    "doctor_type_patient_should_see": "Cardiologist; valve clinic/cardiothoracic surgeon if severe",
+    "common_tests_to_discuss_with_clinician": [
+      "Echocardiogram",
+      "ECG",
+      "chest X-ray",
+      "exercise testing only if safe/ordered",
+      "cardiac catheterization/CT if planning intervention."
+    ],
+    "short_care_note": "Urgent care for chest pain, fainting, severe breathlessness, or new heart failure symptoms."
+  },
+  "suicide attempt": {
+    "doctor_type_patient_should_see": "Emergency medicine immediately; psychiatrist/crisis mental health team",
+    "common_tests_to_discuss_with_clinician": [
+      "Immediate safety/medical assessment",
+      "toxicology/overdose labs if relevant",
+      "injury assessment",
+      "suicide risk assessment",
+      "psychiatric evaluation."
+    ],
+    "short_care_note": "Emergency. Do not leave person alone; remove means of harm; contact emergency services/crisis support immediately."
+  },
+  "tachycardia sinus": {
+    "doctor_type_patient_should_see": "Primary care; cardiologist if persistent/symptomatic; emergency if unstable",
+    "common_tests_to_discuss_with_clinician": [
+      "ECG",
+      "CBC",
+      "TSH",
+      "electrolytes",
+      "glucose",
+      "infection/dehydration evaluation",
+      "Holter if recurrent."
+    ],
+    "short_care_note": "Urgent care for chest pain, fainting, severe shortness of breath, confusion, or very rapid persistent heartbeat."
+  },
+  "thrombocytopaenia": {
+    "doctor_type_patient_should_see": "Hematologist; emergency if severe bleeding",
+    "common_tests_to_discuss_with_clinician": [
+      "CBC with platelet count",
+      "peripheral smear",
+      "repeat CBC",
+      "coagulation tests",
+      "liver tests",
+      "viral tests",
+      "medication review."
+    ],
+    "short_care_note": "Avoid trauma/NSAIDs unless clinician approves. Urgent care for heavy bleeding, black stool, severe headache, confusion, or petechiae with fever."
+  },
+  "thrombus": {
+    "doctor_type_patient_should_see": "Vascular medicine/hematologist/cardiologist depending site; emergency if acute symptoms",
+    "common_tests_to_discuss_with_clinician": [
+      "Site-specific ultrasound/CT angiography",
+      "D-dimer if appropriate",
+      "CBC/creatinine/coagulation",
+      "thrombophilia tests only when indicated."
+    ],
+    "short_care_note": "Emergency for chest pain, shortness of breath, stroke symptoms, or cold painful limb."
+  },
+  "tonic-clonic epilepsy tonic-clonic seizures": {
+    "doctor_type_patient_should_see": "Emergency if prolonged/recurrent; neurologist/epilepsy specialist",
+    "common_tests_to_discuss_with_clinician": [
+      "Glucose/electrolytes",
+      "EEG",
+      "brain MRI/CT if new-onset/trauma/focal signs",
+      "medication levels if on antiseizure therapy."
+    ],
+    "short_care_note": "Protect from injury, place on side, do not put anything in mouth. Emergency if >5 minutes, repeated, injury, pregnancy, or breathing problem."
+  },
+  "transient ischemic attack": {
+    "doctor_type_patient_should_see": "Emergency/urgent stroke service; neurologist",
+    "common_tests_to_discuss_with_clinician": [
+      "Urgent brain imaging",
+      "vascular imaging",
+      "ECG",
+      "glucose",
+      "CBC/CMP/coagulation",
+      "echocardiogram/heart rhythm monitoring as directed."
+    ],
+    "short_care_note": "Treat as urgent stroke warning even if symptoms resolved. Seek emergency assessment promptly."
+  },
+  "tricuspid valve insufficiency": {
+    "doctor_type_patient_should_see": "Cardiologist",
+    "common_tests_to_discuss_with_clinician": [
+      "Echocardiogram",
+      "ECG",
+      "chest X-ray",
+      "liver/kidney tests if congestion",
+      "cardiac MRI/catheterization if indicated."
+    ],
+    "short_care_note": "Follow cardiology care; seek urgent care for worsening breathlessness, fainting, chest pain, severe swelling, or palpitations with dizziness."
+  },
+  "ulcer peptic": {
+    "doctor_type_patient_should_see": "Primary care; gastroenterologist if bleeding/alarm/refractory",
+    "common_tests_to_discuss_with_clinician": [
+      "H. pylori testing",
+      "CBC if bleeding/anemia",
+      "upper endoscopy for alarm signs or complications",
+      "stool occult blood if indicated."
+    ],
+    "short_care_note": "Avoid NSAIDs/alcohol if possible; urgent care for vomiting blood, black stool, severe pain, fainting, or persistent vomiting."
+  },
+  "upper respiratory infection": {
+    "doctor_type_patient_should_see": "Primary care; emergency if severe breathing symptoms",
+    "common_tests_to_discuss_with_clinician": [
+      "Usually clinical",
+      "COVID/flu/strep testing depending symptoms/exposure",
+      "pulse oximetry if breathing issue",
+      "chest X-ray if pneumonia suspected."
+    ],
+    "short_care_note": "Rest, fluids, symptom care. Seek care for shortness of breath, chest pain, high/persistent fever, confusion, dehydration, or high-risk conditions."
+  }
+}
