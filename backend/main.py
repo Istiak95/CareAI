@@ -1,4 +1,3 @@
-
 # ============================================================
 # MediNLP Web Backend
 # FastAPI + MultinomialNB + Red-Flag JSON + SHAP + Recommendation JSON + Symptom Normalization
@@ -55,6 +54,8 @@ MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3306"))
 MYSQL_USER = os.getenv("MYSQL_USER", "root")
 MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "")
 MYSQL_DATABASE = os.getenv("MYSQL_DATABASE", "medinlp_chatbot")
+MYSQL_SSL = os.getenv("MYSQL_SSL", "false").strip().lower() == "true"
+MYSQL_SSL_CA = os.getenv("MYSQL_SSL_CA", "/etc/ssl/certs/ca-certificates.crt")
 AUTH_SECRET = os.getenv("AUTH_SECRET", "medinlp-dev-secret-change-this")
 TOKEN_TTL_SECONDS = int(os.getenv("TOKEN_TTL_SECONDS", str(60 * 60 * 24 * 14)))
 
@@ -137,15 +138,35 @@ class MySQLConnectionWrapper:
         self.connection.commit()
 
 
+def get_mysql_config(database: Optional[str] = None) -> Dict[str, Any]:
+    """Build a MySQL Connector/Python config for local MySQL or TiDB Cloud."""
+    config: Dict[str, Any] = {
+        "host": MYSQL_HOST,
+        "port": MYSQL_PORT,
+        "user": MYSQL_USER,
+        "password": MYSQL_PASSWORD,
+        "charset": "utf8mb4",
+        "use_unicode": True,
+        "connection_timeout": 20,
+    }
+    if database:
+        config["database"] = database
+    if MYSQL_SSL:
+        config.update(
+            {
+                "ssl_disabled": False,
+                "ssl_ca": MYSQL_SSL_CA,
+                "ssl_verify_cert": True,
+                "ssl_verify_identity": True,
+            }
+        )
+    return config
+
+
 def ensure_mysql_database() -> None:
     if mysql is None:
         raise RuntimeError("mysql-connector-python is not installed. Run: python -m pip install mysql-connector-python")
-    server_conn = mysql.connector.connect(
-        host=MYSQL_HOST,
-        port=MYSQL_PORT,
-        user=MYSQL_USER,
-        password=MYSQL_PASSWORD,
-    )
+    server_conn = mysql.connector.connect(**get_mysql_config())
     cursor = server_conn.cursor()
     cursor.execute(
         f"CREATE DATABASE IF NOT EXISTS `{MYSQL_DATABASE}` "
@@ -162,13 +183,7 @@ def get_db_connection():
             raise HTTPException(status_code=500, detail="MySQL support is not installed. Install mysql-connector-python.")
         try:
             connection = mysql.connector.connect(
-                host=MYSQL_HOST,
-                port=MYSQL_PORT,
-                user=MYSQL_USER,
-                password=MYSQL_PASSWORD,
-                database=MYSQL_DATABASE,
-                charset="utf8mb4",
-                use_unicode=True,
+                **get_mysql_config(MYSQL_DATABASE)
             )
         except Exception as exc:
             raise HTTPException(status_code=500, detail=f"Could not connect to MySQL database: {exc}")
@@ -838,6 +853,4 @@ def chat(request: ChatRequest):
         "negated_symptoms": negated_symptoms,
         "symptom_extraction": extraction_details,
     }
-
-
 
