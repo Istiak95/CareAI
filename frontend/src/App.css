@@ -2465,3 +2465,34 @@ body {
     margin: 0 !important;
   }
 }
+/* =========================================
+   Keep disclaimer always visible
+========================================= */
+
+.sidebar {
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+/* Only chat history will scroll when it becomes long */
+.history-section {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.history-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* Disclaimer will never shrink or disappear */
+.notice {
+  flex-shrink: 0;
+  position: relative;
+  z-index: 5;
+}
