@@ -8,5 +8,6 @@
     }
   },
   "fluid": true,
-  "framework": "fastapi"
+  "framework": "fastapi",
+  "buildCommand": "python build_assets.py"
 }
