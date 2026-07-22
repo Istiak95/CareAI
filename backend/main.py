@@ -67,7 +67,7 @@ TOKEN_TTL_SECONDS = int(os.getenv("TOKEN_TTL_SECONDS", str(60 * 60 * 24 * 14)))
 
 TOP_K_DEFAULT = int(os.getenv("TOP_K", "3"))
 ENABLE_SHAP = os.getenv("ENABLE_SHAP", "true").lower() == "true"
-SHAP_NSAMPLES_DEFAULT = int(os.getenv("SHAP_NSAMPLES", "100"))
+SHAP_NSAMPLES_DEFAULT = int(os.getenv("SHAP_NSAMPLES", "30"))
 ENABLE_SEMANTIC = os.getenv("ENABLE_SEMANTIC", "true").lower() == "true"
 _BUNDLED_SEMANTIC_MODEL = os.path.join(MODEL_DIR, "semantic_model")
 SEMANTIC_MODEL_PATH = os.getenv(
