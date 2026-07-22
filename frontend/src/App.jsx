@@ -399,15 +399,13 @@ function AuthPanel({ user,authLoading, authMode, setAuthMode, authForm, setAuthF
           type="password"
         />
         {authError && <div className="auth-error">{authError}</div>}
-        <button className="auth-primary-btn" type="submit"><button
+  className="auth-primary-btn auth-submit-button"
   type="submit"
   disabled={authLoading}
-  className="auth-submit-button"
 >
   {authLoading ? (
     <>
       <span className="login-spinner"></span>
-
       {authMode === "login"
         ? "Logging in..."
         : "Creating account..."}
