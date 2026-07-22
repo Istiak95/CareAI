@@ -474,6 +474,7 @@ export default function App() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);  
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -689,12 +690,13 @@ export default function App() {
   }
 
   function startNewChat() {
-    setCurrentChatId(null);
-    setMessages([createWelcomeMessage()]);
-    setInput("");
-    setShowSuggestions(false);
-    messageCountRef.current = 1;
-  }
+  setCurrentChatId(null);
+  setMessages([createWelcomeMessage()]);
+  setInput("");
+  setShowSuggestions(false);
+  setMobileSidebarOpen(false);
+  messageCountRef.current = 1;
+}
 
   async function openSavedChat(chatId) {
     if (!authToken) return;
@@ -705,6 +707,7 @@ export default function App() {
       const restoredMessages = data.chat?.messages?.length ? data.chat.messages : [createWelcomeMessage()];
       setMessages(restoredMessages);
       setCurrentChatId(data.chat.id);
+      setMobileSidebarOpen(false);
       const maxId = Math.max(0, ...restoredMessages.map((msg) => Number(msg.id) || 0));
       messageCountRef.current = maxId + 1;
     } catch (err) {
@@ -1106,9 +1109,43 @@ export default function App() {
   }
 
   return (
-    <div className={`app-shell ${darkMode ? "dark-mode" : ""}`}>
-      <aside className="sidebar">
-        <div className="sidebar-fixed-top">
+  <div className={`app-shell ${darkMode ? "dark-mode" : ""}`}>
+
+    {/* Mobile sidebar open button */}
+    <button
+      type="button"
+      className="mobile-menu-button"
+      onClick={() => setMobileSidebarOpen(true)}
+      aria-label="Open menu"
+      title="Open menu"
+    >
+      ☰
+    </button>
+
+    {/* Mobile sidebar background overlay */}
+    {mobileSidebarOpen && (
+      <div
+        className="sidebar-overlay"
+        onClick={() => setMobileSidebarOpen(false)}
+        aria-hidden="true"
+      />
+    )}
+
+    <aside
+      className={`sidebar ${mobileSidebarOpen ? "mobile-open" : ""}`}
+    >
+      {/* Mobile sidebar close button */}
+      <button
+        type="button"
+        className="mobile-sidebar-close"
+        onClick={() => setMobileSidebarOpen(false)}
+        aria-label="Close menu"
+        title="Close menu"
+      >
+        ×
+      </button>
+
+      <div className="sidebar-fixed-top">
           <div className="brand">
             <div className="logo">C</div>
             <div>
