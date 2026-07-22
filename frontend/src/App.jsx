@@ -556,31 +556,116 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!authToken) {
-      setAuthChecking(false);
-      return;
-    }
+  if (!authToken) {
+    setAuthChecking(false);
+    return;
+  }
 
-    async function restoreUser() {
-      try {
-        const res = await fetch(`${API_BASE}/api/auth/me`, { headers: getAuthHeaders(authToken) });
-        if (!res.ok) throw new Error("Session expired");
-        const data = await res.json();
-        setUser(data.user);
-        setGuestMode(false);
-        await loadChatList(authToken);
-      } catch (err) {
-        localStorage.removeItem(TOKEN_STORAGE_KEY);
-        setAuthToken("");
-        setUser(null);
-      } finally {
-        setAuthChecking(false);
+  // নতুন করে login করার সময় user আগে থেকেই set থাকলে
+  // আবার /api/auth/me request পাঠাবে না
+  if (user) {
+    setAuthChecking(false);
+    return;
+  }
+
+  let cancelled = false;
+
+  async function restoreUser() {
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/auth/me`,
+        {
+          headers: getAuthHeaders(authToken)
+        }
+      );
+
+      if (!res.ok) {
+        throw new Error("Session expired");
       }
-    }
 
-    restoreUser();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authToken]);
+      const data = await res.json();
+
+      if (cancelled) return;
+
+      setUser(data.user);
+      setGuestMode(false);
+      setAuthChecking(false);
+
+      // Chat history background-এ load হবে
+      void loadChatList(authToken);
+    } catch (err) {
+      if (cancelled) return;
+
+      localStorage.removeItem(TOKEN_STORAGE_KEY);
+      setAuthToken("");
+      setUser(null);
+      setAuthChecking(false);
+    }
+  }
+
+  restoreUser();
+
+  return () => {
+    cancelled = true;
+  };
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [authToken, user]);useEffect(() => {
+  if (!authToken) {
+    setAuthChecking(false);
+    return;
+  }
+
+  // নতুন করে login করার সময় user আগে থেকেই set থাকলে
+  // আবার /api/auth/me request পাঠাবে না
+  if (user) {
+    setAuthChecking(false);
+    return;
+  }
+
+  let cancelled = false;
+
+  async function restoreUser() {
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/auth/me`,
+        {
+          headers: getAuthHeaders(authToken)
+        }
+      );
+
+      if (!res.ok) {
+        throw new Error("Session expired");
+      }
+
+      const data = await res.json();
+
+      if (cancelled) return;
+
+      setUser(data.user);
+      setGuestMode(false);
+      setAuthChecking(false);
+
+      // Chat history background-এ load হবে
+      void loadChatList(authToken);
+    } catch (err) {
+      if (cancelled) return;
+
+      localStorage.removeItem(TOKEN_STORAGE_KEY);
+      setAuthToken("");
+      setUser(null);
+      setAuthChecking(false);
+    }
+  }
+
+  restoreUser();
+
+  return () => {
+    cancelled = true;
+  };
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [authToken, user]);
 
   async function loadChatList(tokenOverride) {
     const token = tokenOverride || authToken;
@@ -620,8 +705,18 @@ export default function App() {
       const savedId = data.chat?.id || chatIdOverride;
       setCurrentChatId(savedId);
       setAutoSaveStatus("Saved");
-      await loadChatList(token);
-      return savedId;
+
+      if (data.chat) {
+      setChats((previousChats) => {
+      const remainingChats = previousChats.filter(
+      (chat) => chat.id !== data.chat.id
+      );
+
+      return [data.chat, ...remainingChats];
+    });
+   }
+
+    return savedId;
     } catch (err) {
       console.error(err);
       setAutoSaveStatus("Save failed");
@@ -665,13 +760,19 @@ export default function App() {
       setAuthToken(data.token);
       setUser(data.user);
       setGuestMode(false);
+      setAuthChecking(false);
       setAuthForm({ first_name: "", last_name: "", email: "", password: "" });
       setAuthError("");
-      await loadChatList(data.token);
+      void loadChatList(data.token);
 
       if (messages.some((msg) => msg.role === "user")) {
-        await saveChatToServer(messages, null, "", data.token);
-      }
+  void saveChatToServer(
+    messages,
+    null,
+    "",
+    data.token
+  );
+}
     } catch (err) {
       setAuthError(err.message || "Authentication failed");
     }
@@ -923,7 +1024,7 @@ export default function App() {
       const res = await fetch(`${API_BASE}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, top_k: 3, enable_shap: true, shap_nsamples: 100 })
+        body: JSON.stringify({ message: text, top_k: 3, enable_shap: true, shap_nsamples: 30 })
       });
       const data = await res.json();
 
@@ -934,11 +1035,23 @@ export default function App() {
         data,
         timestamp: getTimestamp()
       };
-
       const finalMessages = [...messagesWithUser, newBotMessage];
-      setMessages(finalMessages);
-      const savedChatId = await saveChatToServer(finalMessages, currentChatId, text);
-      await saveReportToServer(data, savedChatId);
+
+    setMessages(finalMessages);
+
+    // Chat এবং report background-এ save হবে
+    void (async () => {
+    const savedChatId = await saveChatToServer(
+      finalMessages,
+      currentChatId,
+      text
+    );
+
+    await saveReportToServer(
+      data,
+      savedChatId
+    );
+  })();
     } catch (err) {
       const errorMessage = {
         id: messageCountRef.current++,
@@ -947,8 +1060,14 @@ export default function App() {
         timestamp: getTimestamp()
       };
       const finalMessages = [...messagesWithUser, errorMessage];
-      setMessages(finalMessages);
-      await saveChatToServer(finalMessages, currentChatId, text);
+     
+     setMessages(finalMessages);
+
+void saveChatToServer(
+  finalMessages,
+  currentChatId,
+  text
+);
     } finally {
       setLoading(false);
     }
