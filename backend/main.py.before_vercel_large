@@ -31,11 +31,6 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 from symptom_engine import SymptomNormalizer
 
-try:
-    import certifi
-except Exception:
-    certifi = None
-
 # Load environment variables from .env file
 load_dotenv()
 
@@ -60,22 +55,13 @@ MYSQL_USER = os.getenv("MYSQL_USER", "root")
 MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "")
 MYSQL_DATABASE = os.getenv("MYSQL_DATABASE", "medinlp_chatbot")
 MYSQL_SSL = os.getenv("MYSQL_SSL", "false").strip().lower() == "true"
-_DEFAULT_SSL_CA = certifi.where() if certifi is not None else "/etc/ssl/certs/ca-certificates.crt"
-MYSQL_SSL_CA = os.getenv("MYSQL_SSL_CA", _DEFAULT_SSL_CA).strip()
+MYSQL_SSL_CA = os.getenv("MYSQL_SSL_CA", "/etc/ssl/certs/ca-certificates.crt")
 AUTH_SECRET = os.getenv("AUTH_SECRET", "medinlp-dev-secret-change-this")
 TOKEN_TTL_SECONDS = int(os.getenv("TOKEN_TTL_SECONDS", str(60 * 60 * 24 * 14)))
 
 TOP_K_DEFAULT = int(os.getenv("TOP_K", "3"))
 ENABLE_SHAP = os.getenv("ENABLE_SHAP", "true").lower() == "true"
 SHAP_NSAMPLES_DEFAULT = int(os.getenv("SHAP_NSAMPLES", "100"))
-ENABLE_SEMANTIC = os.getenv("ENABLE_SEMANTIC", "true").lower() == "true"
-_BUNDLED_SEMANTIC_MODEL = os.path.join(MODEL_DIR, "semantic_model")
-SEMANTIC_MODEL_PATH = os.getenv(
-    "SEMANTIC_MODEL_PATH",
-    _BUNDLED_SEMANTIC_MODEL
-    if os.path.isdir(_BUNDLED_SEMANTIC_MODEL)
-    else "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
-)
 
 
 def clean_symptom_text(text: Any) -> str:
@@ -471,11 +457,7 @@ def load_all_assets():
     MAJOR_RED_FLAG_SYMPTOMS = rules["major_symptoms"]
     RED_FLAG_MESSAGES = rules["messages"]
     MAJOR_RED_FLAG_THRESHOLD = rules["major_threshold"]
-    symptom_normalizer = SymptomNormalizer(
-        feature_names,
-        enable_semantic=ENABLE_SEMANTIC,
-        semantic_model_name=SEMANTIC_MODEL_PATH,
-    )
+    symptom_normalizer = SymptomNormalizer(feature_names)
     if ENABLE_SHAP and shap is not None:
         shap_background = pd.DataFrame([[0] * len(feature_names)], columns=feature_names)
         shap_explainer = shap.KernelExplainer(predict_proba_for_shap, shap_background)
