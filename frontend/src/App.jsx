@@ -50,7 +50,7 @@ function createWelcomeMessage() {
   return {
     id: 0,
     role: "bot",
-    content: "Hello, I'm MediNLP 👋\n\nDescribe your symptoms in English, Banglish, or Bangla. Examples: fever and cough / amar jor ase kashi hocche / chest pain",
+    content: "Hello, I'm CareAI 👋\n\nDescribe your symptoms in English, Banglish, or Bangla. Examples: fever and cough / amar jor ase kashi hocche / chest pain",
     timestamp: getTimestamp()
   };
 }
@@ -308,7 +308,7 @@ function PredictionCard({ pred, isPrimary, index }) {
 function ChatBubble({ role, children, timestamp }) {
   return (
     <div className={`message-wrapper ${role}`}>
-      <div className={`avatar avatar-${role}`}>{role === "bot" ? "M" : "You"}</div>
+      <div className={`avatar avatar-${role}`}>{role === "bot" ? "C" : "You"}</div>
       <div className="bubble-container">
         <div className={`bubble ${role}`}>{children}</div>
         {timestamp && <div className="timestamp">{timestamp}</div>}
