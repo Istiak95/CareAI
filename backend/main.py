@@ -727,13 +727,43 @@ def auth_me(current_user: Dict[str, Any] = Depends(get_current_user)):
 
 
 @app.get("/api/chats")
-def list_chats(current_user: Dict[str, Any] = Depends(get_current_user)):
+def list_chats(
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
     with get_db_connection() as conn:
         rows = conn.execute(
-            "SELECT id, user_id, title, created_at, updated_at FROM chat WHERE user_id = ? ORDER BY updated_at DESC",
+            """
+            SELECT
+                id,
+                user_id,
+                title,
+                messages_json,
+                created_at,
+                updated_at
+            FROM chat
+            WHERE user_id = ?
+            ORDER BY updated_at DESC
+            """,
             (current_user["id"],),
         ).fetchall()
-    return {"chats": [dict(row) for row in rows]}
+
+    chats = []
+
+    for row in rows:
+        chats.append(
+            {
+                "id": row["id"],
+                "user_id": row["user_id"],
+                "title": row["title"],
+                "messages": parse_messages_json(
+                    row["messages_json"]
+                ),
+                "created_at": row["created_at"],
+                "updated_at": row["updated_at"],
+            }
+        )
+
+    return {"chats": chats}
 
 
 @app.post("/api/chats")
