@@ -45,7 +45,7 @@ CONTRAST_WORDS = {"but", "kintu", "tobe", "কিন্তু", "তবে"}
 BANGLISH_TOKEN_REPLACEMENTS = {
     # common non-symptom words that often appear in Banglish input
     "amer": "amar", "amr": "amar", "amiar": "amar", "amarer": "amar",
-    "ase": "ache", "achee": "ache", "acce": "ache", "aca": "ache",
+   "achee": "ase", "acce": "ase", "aca": "ase",
     "hocce": "hocche", "hoche": "hocche", "hoitese": "hocche", "hotesa": "hocche",
     "kortase": "korche", "kortese": "korche", "korce": "korche", "korchey": "korche",
 
