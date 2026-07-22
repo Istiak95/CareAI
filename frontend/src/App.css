@@ -2496,3 +2496,31 @@ body {
   position: relative;
   z-index: 5;
 }
+/* Login loading spinner */
+.auth-submit-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+}
+
+.auth-submit-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.8;
+}
+
+.login-spinner {
+  width: 17px;
+  height: 17px;
+  display: inline-block;
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: login-spin 0.7s linear infinite;
+}
+
+@keyframes login-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
