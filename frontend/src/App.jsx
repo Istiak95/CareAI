@@ -448,16 +448,16 @@ function AuthGate({ authMode, setAuthMode, authForm, setAuthForm, authError, aut
         <p className="auth-gate-subtitle">Login to restore previous chats, or continue as guest for a temporary session.</p>
 
         <AuthPanel
-          user={null}
-          authMode={authMode}
-          setAuthMode={setAuthMode}
-          authForm={authForm}
-          setAuthForm={setAuthForm}
-          authError={authError}
-          onSubmit={onSubmit}
-          onLogout={() => {}}
+        user={null}
+        authMode={authMode}
+        setAuthMode={setAuthMode}
+        authForm={authForm}
+        setAuthForm={setAuthForm}
+        authError={authError}
+        authLoading={authLoading}
+        onSubmit={onSubmit}
+        onLogout={() => {}}
         />
-
         <div className="auth-gate-divider"><span>or</span></div>
         <button className="guest-start-btn" type="button" onClick={onGuest}>
           Continue as Guest
