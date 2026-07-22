@@ -2116,6 +2116,131 @@ body {
 .composer-meta {
   flex-wrap: wrap;
 }
+/* =========================================================
+   Mobile Sidebar / Drawer
+========================================================= */
+
+.mobile-menu-button,
+.mobile-sidebar-close {
+  display: none;
+}
+
+.sidebar-overlay {
+  display: none;
+}
+
+@media screen and (max-width: 768px) {
+  html,
+  body {
+    overflow-x: hidden;
+  }
+
+  .app-shell {
+    width: 100%;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* Sidebar is hidden outside the screen by default */
+  .app-shell .sidebar {
+    display: flex !important;
+    flex-direction: column;
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: min(320px, 86vw);
+    height: 100dvh;
+    z-index: 2001;
+    transform: translateX(-105%);
+    transition: transform 0.28s ease;
+    overflow: hidden;
+    box-shadow: 8px 0 24px rgba(0, 0, 0, 0.18);
+  }
+
+  /* Sidebar becomes visible */
+  .app-shell .sidebar.mobile-open {
+    transform: translateX(0);
+  }
+
+  /* Hamburger button */
+  .mobile-menu-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    border: none;
+    border-radius: 12px;
+    background: #14b8a6;
+    color: #ffffff;
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 1900;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  }
+
+  /* Dark background behind open sidebar */
+  .sidebar-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.48);
+    backdrop-filter: blur(2px);
+    z-index: 2000;
+  }
+
+  /* Sidebar close button */
+  .mobile-sidebar-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: rgba(15, 23, 42, 0.08);
+    color: inherit;
+    font-size: 28px;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 10;
+  }
+
+  .sidebar-fixed-top {
+    padding-top: 54px;
+  }
+
+  .sidebar-scroll-area {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .sidebar-fixed-bottom {
+    flex-shrink: 0;
+  }
+
+  .chat-panel {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
+    min-width: 0;
+  }
+
+  .chat-header {
+    padding-left: 64px;
+  }
+}
 
 .voice-language-select {
   max-width: 170px;
