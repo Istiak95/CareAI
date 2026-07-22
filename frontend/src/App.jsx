@@ -348,7 +348,7 @@ function MicIcon({ listening }) {
   );
 }
 
-function AuthPanel({ user, authMode, setAuthMode, authForm, setAuthForm, authError, onSubmit, onLogout }) {
+function AuthPanel({ user,authLoading, authMode, setAuthMode, authForm, setAuthForm, authError, onSubmit, onLogout }) {
   if (user) {
     return (
       <div className="auth-section signed-in">
@@ -399,7 +399,25 @@ function AuthPanel({ user, authMode, setAuthMode, authForm, setAuthForm, authErr
           type="password"
         />
         {authError && <div className="auth-error">{authError}</div>}
-        <button className="auth-primary-btn" type="submit">{authMode === "login" ? "Login" : "Create account"}</button>
+        <button className="auth-primary-btn" type="submit"><button
+  type="submit"
+  disabled={authLoading}
+  className="auth-submit-button"
+>
+  {authLoading ? (
+    <>
+      <span className="login-spinner"></span>
+
+      {authMode === "login"
+        ? "Logging in..."
+        : "Creating account..."}
+    </>
+  ) : (
+    authMode === "login"
+      ? "Login"
+      : "Create account"
+  )}
+</button></button>
       </form>
 
       <p className="guest-copy">Guest mode is available, but chat restore/history works only after login.</p>
@@ -407,7 +425,7 @@ function AuthPanel({ user, authMode, setAuthMode, authForm, setAuthForm, authErr
   );
 }
 
-function AuthGate({ authMode, setAuthMode, authForm, setAuthForm, authError, onSubmit, onGuest, darkMode, setDarkMode }) {
+function AuthGate({ authMode, setAuthMode, authForm, setAuthForm, authError, authLoading, onSubmit, onGuest, darkMode, setDarkMode }) {
   return (
     <div className={`auth-gate ${darkMode ? "dark-mode" : ""}`}>
       <button
@@ -488,6 +506,7 @@ export default function App() {
   const [authMode, setAuthMode] = useState("login");
   const [authForm, setAuthForm] = useState({ first_name: "", last_name: "", email: "", password: "" });
   const [authError, setAuthError] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
   const [chats, setChats] = useState([]);
   const [currentChatId, setCurrentChatId] = useState(null);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -739,45 +758,68 @@ export default function App() {
   }
 
   async function handleAuthSubmit(event) {
-    event.preventDefault();
+  event.preventDefault();
+
+  if (authLoading) return;
+
+  setAuthError("");
+  setAuthLoading(true);
+
+  const endpoint =
+    authMode === "register"
+      ? "/api/auth/register"
+      : "/api/auth/login";
+
+  const payload =
+    authMode === "register"
+      ? authForm
+      : {
+          email: authForm.email,
+          password: authForm.password,
+        };
+
+  try {
+    const res = await fetch(`${API_BASE}${endpoint}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.detail || "Authentication failed");
+    }
+
+    localStorage.setItem(TOKEN_STORAGE_KEY, data.token);
+
+    setAuthToken(data.token);
+    setUser(data.user);
+    setGuestMode(false);
+    setAuthChecking(false);
+
+    setAuthForm({
+      first_name: "",
+      last_name: "",
+      email: "",
+      password: "",
+    });
+
     setAuthError("");
 
-    const endpoint = authMode === "register" ? "/api/auth/register" : "/api/auth/login";
-    const payload = authMode === "register"
-      ? authForm
-      : { email: authForm.email, password: authForm.password };
+    void loadChatList(data.token);
 
-    try {
-      const res = await fetch(`${API_BASE}${endpoint}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Authentication failed");
-
-      localStorage.setItem(TOKEN_STORAGE_KEY, data.token);
-      setAuthToken(data.token);
-      setUser(data.user);
-      setGuestMode(false);
-      setAuthChecking(false);
-      setAuthForm({ first_name: "", last_name: "", email: "", password: "" });
-      setAuthError("");
-      void loadChatList(data.token);
-
-      if (messages.some((msg) => msg.role === "user")) {
-  void saveChatToServer(
-    messages,
-    null,
-    "",
-    data.token
-  );
-}
-    } catch (err) {
-      setAuthError(err.message || "Authentication failed");
+    if (messages.some((msg) => msg.role === "user")) {
+      void saveChatToServer(messages, null, "", data.token);
     }
+  } catch (err) {
+    setAuthError(err.message || "Authentication failed");
+  } finally {
+    setAuthLoading(false);
   }
-
+}
   function logout() {
     localStorage.removeItem(TOKEN_STORAGE_KEY);
     setAuthToken("");
@@ -1322,6 +1364,7 @@ void saveChatToServer(
         authForm={authForm}
         setAuthForm={setAuthForm}
         authError={authError}
+        authLoading={authLoading}
         onSubmit={handleAuthSubmit}
         onGuest={() => setGuestMode(true)}
         darkMode={darkMode}
