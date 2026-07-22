@@ -398,8 +398,10 @@ function AuthPanel({ user,authLoading, authMode, setAuthMode, authForm, setAuthF
           placeholder="Password"
           type="password"
         />
-        {authError && <div className="auth-error">{authError}</div>}
-  <button
+        
+      {authError && <div className="auth-error">{authError}</div>}
+
+<button
   className="auth-primary-btn auth-submit-button"
   type="submit"
   disabled={authLoading}
@@ -407,19 +409,22 @@ function AuthPanel({ user,authLoading, authMode, setAuthMode, authForm, setAuthF
   {authLoading ? (
     <>
       <span className="login-spinner"></span>
-      {authMode === "login"
-        ? "Logging in..."
-        : "Creating account..."}
+      <span>
+        {authMode === "login"
+          ? "Logging in..."
+          : "Creating account..."}
+      </span>
     </>
   ) : (
-    authMode === "login"
-      ? "Login"
-      : "Create account"
+    <span>
+      {authMode === "login"
+        ? "Login"
+        : "Create account"}
+    </span>
   )}
 </button>
 
 </form>
-      </form>
 
       <p className="guest-copy">Guest mode is available, but chat restore/history works only after login.</p>
     </div>
