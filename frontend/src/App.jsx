@@ -1051,75 +1051,121 @@ export default function App() {
     );
   }
 };
-  async function sendMessage() {
-    const text = input.trim();
-    if (!text || loading) return;
+async function sendMessage() {
+  const text = input.trim();
 
-    const newUserMessage = {
+  if (!text || loading) return;
+
+  const newUserMessage = {
+    id: messageCountRef.current++,
+    role: "user",
+    content: text,
+    timestamp: getTimestamp(),
+  };
+
+  const messagesWithUser = [...messages, newUserMessage];
+
+  setMessages(messagesWithUser);
+  setInput("");
+  setShowSuggestions(false);
+  setLoading(true);
+
+  /*
+   * Send করার সঙ্গে সঙ্গে chat save শুরু হবে।
+   * Prediction শেষ হওয়ার জন্য অপেক্ষা করবে না।
+   */
+  const firstSavePromise = authToken
+    ? saveChatToServer(
+        messagesWithUser,
+        currentChatId,
+        text
+      )
+    : Promise.resolve(currentChatId);
+
+  try {
+    const res = await fetch(`${API_BASE}/api/chat`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        message: text,
+        top_k: 3,
+        enable_shap: true,
+        shap_nsamples: 30,
+      }),
+    });
+
+    if (!res.ok) {
+      throw new Error("Prediction request failed");
+    }
+
+    const data = await res.json();
+
+    const newBotMessage = {
       id: messageCountRef.current++,
-      role: "user",
-      content: text,
-      timestamp: getTimestamp()
+      role: "bot",
+      type: "result",
+      data,
+      timestamp: getTimestamp(),
     };
 
-    const messagesWithUser = [...messages, newUserMessage];
-    setMessages(messagesWithUser);
-    setInput("");
-    setShowSuggestions(false);
-    setLoading(true);
-
-    try {
-      const res = await fetch(`${API_BASE}/api/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, top_k: 3, enable_shap: true, shap_nsamples: 30 })
-      });
-      const data = await res.json();
-
-      const newBotMessage = {
-        id: messageCountRef.current++,
-        role: "bot",
-        type: "result",
-        data,
-        timestamp: getTimestamp()
-      };
-      const finalMessages = [...messagesWithUser, newBotMessage];
+    const finalMessages = [
+      ...messagesWithUser,
+      newBotMessage,
+    ];
 
     setMessages(finalMessages);
 
-    // Chat এবং report background-এ save হবে
+    /*
+     * প্রথম save থেকে chat ID নেওয়া হবে।
+     * এরপর bot resultসহ একই chat update হবে।
+     */
     void (async () => {
-    const savedChatId = await saveChatToServer(
-      finalMessages,
-      currentChatId,
-      text
-    );
+      const savedChatId = await firstSavePromise;
 
-    await saveReportToServer(
-      data,
-      savedChatId
-    );
-  })();
-    } catch (err) {
-      const errorMessage = {
-        id: messageCountRef.current++,
-        role: "bot",
-        content: "❌ Backend connection failed. Make sure FastAPI is running on http://127.0.0.1:8000",
-        timestamp: getTimestamp()
-      };
-      const finalMessages = [...messagesWithUser, errorMessage];
-     
-     setMessages(finalMessages);
+      const finalChatId = await saveChatToServer(
+        finalMessages,
+        savedChatId,
+        text
+      );
 
-void saveChatToServer(
-  finalMessages,
-  currentChatId,
-  text
-);
-    } finally {
-      setLoading(false);
-    }
+      await saveReportToServer(
+        data,
+        finalChatId
+      );
+    })();
+  } catch (err) {
+    console.error(err);
+
+    const errorMessage = {
+      id: messageCountRef.current++,
+      role: "bot",
+      content:
+        "❌ Backend connection failed. Please try again.",
+      timestamp: getTimestamp(),
+    };
+
+    const finalMessages = [
+      ...messagesWithUser,
+      errorMessage,
+    ];
+
+    setMessages(finalMessages);
+
+    void (async () => {
+      const savedChatId = await firstSavePromise;
+
+      await saveChatToServer(
+        finalMessages,
+        savedChatId,
+        text
+      );
+    })();
+  } finally {
+    setLoading(false);
   }
+}
 
   function renderBotResult(data) {
     if (data.status === "failed") {
