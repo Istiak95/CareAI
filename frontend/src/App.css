@@ -2245,3 +2245,137 @@ body {
 .voice-language-select {
   max-width: 170px;
 }
+
+/* =========================================================
+   Mobile full-screen chat layout
+   Header and input stay visible, only messages scroll
+========================================================= */
+
+@media screen and (max-width: 768px) {
+  html,
+  body,
+  #root {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    overflow: hidden !important;
+  }
+
+  .app-shell {
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .chat-panel {
+    display: flex !important;
+    flex-direction: column;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    margin-left: 0 !important;
+    overflow: hidden !important;
+  }
+
+  /* Header will remain at the top */
+  .chat-header {
+    flex-shrink: 0;
+    padding: 14px 16px 12px 64px !important;
+  }
+
+  .chat-title-row {
+    gap: 8px;
+  }
+
+  .chat-title-row h2 {
+    margin: 0;
+    font-size: 20px;
+    line-height: 1.25;
+  }
+
+  .chat-title-row p {
+    margin: 4px 0 0;
+    font-size: 13px;
+    line-height: 1.35;
+  }
+
+  .header-status {
+    margin-top: 8px;
+    padding: 9px 12px !important;
+  }
+
+  .header-status strong {
+    font-size: 14px;
+  }
+
+  .header-status span {
+    font-size: 12px;
+  }
+
+  /* Only this section will scroll */
+  .messages {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    height: auto !important;
+    overflow-y: auto !important;
+    overflow-x: hidden;
+    padding: 14px 12px !important;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Input area will always remain visible */
+  .composer {
+    position: relative !important;
+    bottom: auto !important;
+    flex-shrink: 0;
+    width: 100%;
+    z-index: 20;
+    padding: 10px 12px
+      calc(10px + env(safe-area-inset-bottom)) !important;
+    background: inherit;
+    border-top: 1px solid rgba(148, 163, 184, 0.25);
+  }
+
+  .input-wrapper {
+    min-width: 0;
+  }
+
+  .composer input {
+    min-width: 0;
+    font-size: 16px; /* Prevents iPhone auto zoom */
+  }
+
+  .composer-meta {
+    margin-top: 5px;
+    gap: 5px;
+  }
+
+  .voice-language-select {
+    max-width: 190px;
+    font-size: 12px;
+  }
+
+  .voice-hint,
+  .voice-status,
+  .voice-error {
+    font-size: 12px;
+    line-height: 1.3;
+  }
+
+  .message-wrapper {
+    max-width: 100%;
+  }
+
+  .bubble-container {
+    min-width: 0;
+    max-width: calc(100% - 54px);
+  }
+
+  .bubble {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+}
