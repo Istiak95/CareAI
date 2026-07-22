@@ -730,75 +730,178 @@ export default function App() {
     }
   }
 
-  const startVoiceInput = () => {
-    const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const startVoiceInput = async () => {
+  const SpeechRecognitionAPI =
+    window.SpeechRecognition || window.webkitSpeechRecognition;
 
-    if (!SpeechRecognitionAPI) {
-      setVoiceError("Voice input is not supported in this browser. Please use Chrome or Edge.");
-      return;
+  if (!SpeechRecognitionAPI) {
+    setVoiceError(
+      "Voice recognition is not supported in this browser. Please try Safari, Chrome, or Edge."
+    );
+    return;
+  }
+
+  if (!window.isSecureContext) {
+    setVoiceError("Voice input requires a secure HTTPS connection.");
+    return;
+  }
+
+  // Stop current recognition
+  if (isListening && recognitionRef.current) {
+    try {
+      recognitionRef.current.abort();
+    } catch (error) {
+      console.error("Could not stop recognition:", error);
     }
 
-    if (isListening && recognitionRef.current) {
-      recognitionRef.current.stop();
-      setIsListening(false);
-      return;
+    recognitionRef.current = null;
+    setIsListening(false);
+    return;
+  }
+
+  // Explicitly request microphone permission
+  try {
+    if (navigator.mediaDevices?.getUserMedia) {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: true
+      });
+
+      stream.getTracks().forEach((track) => track.stop());
     }
+  } catch (error) {
+    console.error("Microphone permission error:", error);
 
-    const recognition = new SpeechRecognitionAPI();
-    recognitionRef.current = recognition;
-    voiceSeedRef.current = input.trim();
+    setVoiceError(
+      "Microphone access is blocked. Allow microphone permission for this website in Safari settings."
+    );
+    return;
+  }
 
-    recognition.lang = voiceLanguage;
-    recognition.interimResults = false;
-    recognition.continuous = false;
-    recognition.maxAlternatives = 5;
+  const recognition = new SpeechRecognitionAPI();
 
-    setIsListening(true);
+  recognitionRef.current = recognition;
+  voiceSeedRef.current = input.trim();
+
+  recognition.lang = voiceLanguage;
+  recognition.interimResults = false;
+  recognition.continuous = false;
+
+  // More stable on mobile Safari
+  recognition.maxAlternatives = 1;
+
+  let receivedResult = false;
+
+  setVoiceError("");
+  setIsListening(true);
+
+  recognition.onstart = () => {
     setVoiceError("");
-
-    recognition.onstart = () => {
-      setIsListening(true);
-      setVoiceError("");
-    };
-
-    recognition.onresult = (event) => {
-      const results = Array.from(event.results || []);
-      const finalResults = results.filter((result) => result.isFinal);
-      const targetResult = finalResults[finalResults.length - 1] || results[results.length - 1];
-      const transcript = targetResult ? pickBestTranscript(targetResult) : "";
-      const combined = normalizeTranscript(`${voiceSeedRef.current} ${transcript}`);
-
-      if (combined) setInput(combined);
-    };
-
-    recognition.onspeechend = () => {
-      recognition.stop();
-    };
-
-    recognition.onnomatch = () => {
-      setVoiceError("Could not clearly recognize the symptom. Please try again closer to the microphone.");
-    };
-
-    recognition.onerror = (event) => {
-      if (event.error !== "aborted") {
-        if (event.error === "no-speech") {
-          setVoiceError("Could not detect voice. Please try again.");
-        } else if (event.error === "not-allowed") {
-          setVoiceError("Microphone permission is blocked. Please allow microphone access.");
-        } else {
-          setVoiceError("Could not recognize speech. Please try again.");
-        }
-      }
-      setIsListening(false);
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-    };
-
-    recognition.start();
+    setIsListening(true);
   };
 
+  recognition.onaudiostart = () => {
+    console.log("Microphone audio capture started");
+  };
+
+  recognition.onspeechstart = () => {
+    console.log("Speech detected");
+  };
+
+  recognition.onresult = (event) => {
+    receivedResult = true;
+
+    const result =
+      event.results[event.resultIndex] ||
+      event.results[event.results.length - 1];
+
+    const transcript = result?.[0]?.transcript || "";
+
+    const combined = normalizeTranscript(
+      `${voiceSeedRef.current} ${transcript}`
+    );
+
+    if (combined) {
+      setInput(combined);
+      setVoiceError("");
+    } else {
+      setVoiceError("No recognizable speech was received.");
+    }
+  };
+
+  recognition.onspeechend = () => {
+    // Small delay prevents Safari from cutting the final word
+    window.setTimeout(() => {
+      try {
+        recognition.stop();
+      } catch (error) {
+        console.error("Recognition stop error:", error);
+      }
+    }, 350);
+  };
+
+  recognition.onnomatch = () => {
+    setVoiceError(
+      "Speech was heard but could not be understood. Speak slowly and try again."
+    );
+  };
+
+  recognition.onerror = (event) => {
+    console.error(
+      "Speech recognition error:",
+      event.error,
+      event.message || ""
+    );
+
+    const errorMessages = {
+      "no-speech":
+        "No speech was detected. Tap the microphone, wait one second, then speak.",
+      "audio-capture":
+        "The microphone could not capture audio. Check Safari microphone permission.",
+      "not-allowed":
+        "Microphone permission is blocked. Allow microphone access for this website.",
+      "service-not-allowed":
+        "Safari did not allow the speech-recognition service.",
+      "network":
+        "Speech recognition network error. Check your internet connection and try again.",
+      "language-not-supported":
+        `The selected language (${voiceLanguage}) is not supported by this browser.`,
+      "bad-grammar":
+        "The speech-recognition language configuration is not supported."
+    };
+
+    if (event.error !== "aborted") {
+      setVoiceError(
+        errorMessages[event.error] ||
+          `Voice recognition failed: ${event.error || "unknown error"}`
+      );
+    }
+
+    setIsListening(false);
+  };
+
+  recognition.onend = () => {
+    console.log("Speech recognition ended");
+
+    recognitionRef.current = null;
+    setIsListening(false);
+
+    if (!receivedResult) {
+      console.log("Recognition ended without a transcript");
+    }
+  };
+
+  try {
+    recognition.start();
+  } catch (error) {
+    console.error("Recognition start error:", error);
+
+    recognitionRef.current = null;
+    setIsListening(false);
+    setVoiceError(
+      "Voice recognition could not start. Wait a moment and tap the microphone again."
+    );
+  }
+};
   async function sendMessage() {
     const text = input.trim();
     if (!text || loading) return;
@@ -1311,8 +1414,8 @@ export default function App() {
               disabled={isListening}
               title="Voice recognition language"
             >
-              <option value="bn-BD">Bangla / Banglish voice</option>
-              <option value="en-US">English voice</option>
+              <option value="bn-BD">বাংলা voice</option>
+              <option value="en-US">English / Banglish voice</option>
             </select>
             {isListening && <span className="voice-status">Listening...</span>}
             {voiceError && <span className="voice-error">{voiceError}</span>}
