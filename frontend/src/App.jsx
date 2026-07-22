@@ -848,21 +848,79 @@ export default function App() {
 }
 
   async function openSavedChat(chatId) {
-    if (!authToken) return;
-    try {
-      const res = await fetch(`${API_BASE}/api/chats/${chatId}`, { headers: getAuthHeaders() });
-      if (!res.ok) throw new Error("Could not open chat");
-      const data = await res.json();
-      const restoredMessages = data.chat?.messages?.length ? data.chat.messages : [createWelcomeMessage()];
-      setMessages(restoredMessages);
-      setCurrentChatId(data.chat.id);
-      setMobileSidebarOpen(false);
-      const maxId = Math.max(0, ...restoredMessages.map((msg) => Number(msg.id) || 0));
-      messageCountRef.current = maxId + 1;
-    } catch (err) {
-      console.error(err);
-    }
+  if (!authToken) return;
+
+  // প্রথমে already-loaded chat history থেকে messages নেওয়া হবে
+  const cachedChat = chats.find(
+    (chat) => String(chat.id) === String(chatId)
+  );
+
+  if (cachedChat?.messages?.length) {
+    const restoredMessages = cachedChat.messages;
+
+    setMessages(restoredMessages);
+    setCurrentChatId(cachedChat.id);
+    setMobileSidebarOpen(false);
+
+    const maxId = Math.max(
+      0,
+      ...restoredMessages.map(
+        (msg) => Number(msg.id) || 0
+      )
+    );
+
+    messageCountRef.current = maxId + 1;
+    return;
   }
+
+  // পুরোনো data-তে messages না থাকলে শুধু fallback request
+  try {
+    const res = await fetch(
+      `${API_BASE}/api/chats/${chatId}`,
+      {
+        headers: getAuthHeaders(),
+      }
+    );
+
+    if (!res.ok) {
+      throw new Error("Could not open chat");
+    }
+
+    const data = await res.json();
+
+    const restoredMessages =
+      data.chat?.messages?.length
+        ? data.chat.messages
+        : [createWelcomeMessage()];
+
+    setMessages(restoredMessages);
+    setCurrentChatId(data.chat.id);
+    setMobileSidebarOpen(false);
+
+    // Loaded messages cache করে রাখা হবে
+    setChats((previousChats) =>
+      previousChats.map((chat) =>
+        String(chat.id) === String(chatId)
+          ? {
+              ...chat,
+              messages: restoredMessages,
+            }
+          : chat
+      )
+    );
+
+    const maxId = Math.max(
+      0,
+      ...restoredMessages.map(
+        (msg) => Number(msg.id) || 0
+      )
+    );
+
+    messageCountRef.current = maxId + 1;
+  } catch (err) {
+    console.error(err);
+  }
+}
 
   async function deleteSavedChat(chatId) {
     if (!authToken) return;
