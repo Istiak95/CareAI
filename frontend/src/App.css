@@ -2466,7 +2466,8 @@ body {
   }
 }
 /* =========================================
-   Keep disclaimer always visible
+   Keep disclaimer visible
+   Only chat history will scroll
 ========================================= */
 
 .sidebar {
@@ -2475,52 +2476,42 @@ body {
   overflow: hidden;
 }
 
-/* Only chat history will scroll when it becomes long */
-.history-section {
+.sidebar-scroll-area {
   flex: 1;
   min-height: 0;
+  overflow: hidden;
+
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.history-section {
+  flex: 1 1 auto;
+  min-height: 80px;
+
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
+.history-header {
+  flex-shrink: 0;
+}
+
 .history-list {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
+  max-height: none;
   overflow-y: auto;
 }
 
-/* Disclaimer will never shrink or disappear */
+.info-section,
 .notice {
-  flex-shrink: 0;
+  flex: 0 0 auto;
+}
+
+.notice {
   position: relative;
   z-index: 5;
-}
-/* Login loading spinner */
-.auth-submit-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 9px;
-}
-
-.auth-submit-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.8;
-}
-
-.login-spinner {
-  width: 17px;
-  height: 17px;
-  display: inline-block;
-  border: 2px solid rgba(255, 255, 255, 0.45);
-  border-top-color: #ffffff;
-  border-radius: 50%;
-  animation: login-spin 0.7s linear infinite;
-}
-
-@keyframes login-spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
