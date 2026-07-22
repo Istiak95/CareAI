@@ -856,12 +856,12 @@ export default function App() {
       "no-speech":
         "No speech was detected. Tap the microphone, wait one second, then speak.",
       "audio-capture":
-        "The microphone could not capture audio. Check Safari microphone permission.",
+        "The microphone could not capture audio. Check microphone permission in your browser settings.",
       "not-allowed":
         "Microphone permission is blocked. Allow microphone access for this website.",
       "service-not-allowed":
-        "Safari did not allow the speech-recognition service.",
-      "network":
+        "This browser did not allow the speech-recognition service. On iPhone, try Safari or use keyboard voice typing.",
+        "network":
         "Speech recognition network error. Check your internet connection and try again.",
       "language-not-supported":
         `The selected language (${voiceLanguage}) is not supported by this browser.`,
@@ -1361,7 +1361,9 @@ export default function App() {
               )}
             </ChatBubble>
           ))}
-          {loading && <TypingIndicator />}
+          {loading && messages[messages.length - 1]?.role === "user" && (
+            <TypingIndicator />
+            )}
           <div ref={messagesEndRef} />
         </div>
 
