@@ -944,6 +944,23 @@ def get_symptoms(q: Optional[str] = None, limit: int = 50):
         symptoms = [s for s in symptoms if query in s]
     return {"count": min(len(symptoms), limit), "symptoms": symptoms[:limit]}
 
+def contains_arabic_script(text: str) -> bool:
+    """
+    Detect Arabic/Persian-style Unicode characters.
+    Used to catch incorrect Arabic transcription
+    when the speaker actually used Bangla/Banglish.
+    """
+    value = str(text or "")
+
+    return any(
+        (
+            "\u0600" <= char <= "\u06FF"
+            or "\u0750" <= char <= "\u077F"
+            or "\u08A0" <= char <= "\u08FF"
+        )
+        for char in value
+    )
+
 @app.post("/api/transcribe")
 async def transcribe_audio(
     audio: UploadFile = File(...),
@@ -1008,45 +1025,48 @@ async def transcribe_audio(
             else f"voice-recording{extension}"
         )
 
-        transcription = (
-            client.audio.transcriptions.create(
-                file=(
-                    filename,
-                    audio_bytes,
-                ),
-                model=GROQ_TRANSCRIPTION_MODEL,
+       # First attempt: automatic language detection
+transcription = groq_client.audio.transcriptions.create(
+    file=(filename, audio_bytes),
+    model=GROQ_TRANSCRIPTION_MODEL,
+    response_format="json",
+    temperature=0.0,
+)
 
-                # Mixed medical vocabulary helps the model
-                # recognize common symptom terms.
-                prompt=(
-                    "Medical symptom description. "
-                    "The speaker may use Bangla, English, "
-                    "Banglish, or code-mixed speech. "
-                    "Possible terms include fever, cough, "
-                    "headache, chest pain, shortness of breath, "
-                    "vomiting, dizziness, jor, kashi, "
-                    "matha betha, buk betha, shash kosto, "
-                    "pet betha, bomi, জ্বর, কাশি, মাথা ব্যথা, "
-                    "বুক ব্যথা, শ্বাসকষ্ট, পেট ব্যথা এবং বমি।"
-                ),
+transcript_text = str(
+    getattr(transcription, "text", "") or ""
+).strip()
 
-                response_format="json",
-                temperature=0.0,
+# Sometimes short Bangla/Banglish speech is incorrectly
+# returned using Arabic script. Retry internally as Bangla.
+if contains_arabic_script(transcript_text):
+    print(
+        "Arabic-script transcription detected. "
+        "Retrying with Bengali language."
+    )
 
-                # Do not provide a fixed language.
-                # The model will detect it from the audio.
-            )
+    bangla_transcription = (
+        groq_client.audio.transcriptions.create(
+            file=(filename, audio_bytes),
+            model=GROQ_TRANSCRIPTION_MODEL,
+            language="bn",
+            prompt=(
+                "রোগীর স্বাস্থ্য উপসর্গ সঠিকভাবে লিখুন। "
+                "সম্ভাব্য শব্দ: জ্বর, কাশি, মাথা ব্যথা, "
+                "বুক ব্যথা, শ্বাসকষ্ট, পেট ব্যথা, বমি, "
+                "মাথা ঘোরা, শরীর ব্যথা।"
+            ),
+            response_format="json",
+            temperature=0.0,
         )
+    )
 
-        transcript_text = str(
-            getattr(
-                transcription,
-                "text",
-                "",
-            )
-            or ""
-        ).strip()
+    retry_text = str(
+        getattr(bangla_transcription, "text", "") or ""
+    ).strip()
 
+    if retry_text:
+        transcript_text = retry_text
         if not transcript_text:
             raise HTTPException(
                 status_code=422,
