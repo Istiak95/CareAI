@@ -19,6 +19,8 @@ dependencies = [
     "torch==2.5.1+cpu",
     "mysql-connector-python==9.1.0",
     "certifi>=2024.8.30"
+    "groq",
+    "python-multipart",
 ]
 
 [tool.uv.sources]
