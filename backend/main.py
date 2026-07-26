@@ -90,12 +90,16 @@ GROQ_TRANSCRIPTION_MODEL = os.getenv(
     "whisper-large-v3",
 ).strip()
 
-groq_client = (
-    Groq(api_key=GROQ_API_KEY)
-    if GROQ_API_KEY
-    else None
-)
+def get_groq_client():
+    api_key = os.getenv("GROQ_API_KEY", "").strip()
 
+    if not api_key:
+        raise HTTPException(
+            status_code=500,
+            detail="GROQ_API_KEY is missing from the server environment.",
+        )
+
+    return Groq(api_key=api_key)
 # Vercel request body maximum 4.5 MB.
 # Keep our audio below that limit.
 MAX_AUDIO_SIZE_BYTES = 3_500_000
@@ -923,8 +927,8 @@ def health():
         "database_provider": DB_PROVIDER,
 
         # Voice configuration status
-        "voice_transcription_configured": (
-            groq_client is not None
+        "voice_transcription_configured": bool(
+        os.getenv("GROQ_API_KEY", "").strip()
         ),
         "voice_transcription_model": (
             GROQ_TRANSCRIPTION_MODEL
@@ -952,14 +956,8 @@ async def transcribe_audio(
     Banglish, or mixed speech automatically.
     """
 
-    if groq_client is None:
-        raise HTTPException(
-            status_code=500,
-            detail=(
-                "Voice transcription is not configured. "
-                "GROQ_API_KEY is missing."
-            ),
-        )
+    client = get_groq_client()
+        
 
     content_type = (
         str(audio.content_type or "")
@@ -1011,7 +1009,7 @@ async def transcribe_audio(
         )
 
         transcription = (
-            groq_client.audio.transcriptions.create(
+            client.audio.transcriptions.create(
                 file=(
                     filename,
                     audio_bytes,
