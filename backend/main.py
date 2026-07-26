@@ -25,7 +25,15 @@ from typing import List, Optional, Dict, Any
 import numpy as np
 import pandas as pd
 from joblib import load
-from fastapi import FastAPI, HTTPException, Header, Depends
+from fastapi import (
+    FastAPI,
+    HTTPException,
+    Header,
+    Depends,
+    UploadFile,
+    File,
+)
+from groq import Groq
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -68,6 +76,42 @@ TOKEN_TTL_SECONDS = int(os.getenv("TOKEN_TTL_SECONDS", str(60 * 60 * 24 * 14)))
 TOP_K_DEFAULT = int(os.getenv("TOP_K", "3"))
 ENABLE_SHAP = os.getenv("ENABLE_SHAP", "true").lower() == "true"
 SHAP_NSAMPLES_DEFAULT = int(os.getenv("SHAP_NSAMPLES", "30"))
+# ============================================================
+# Voice Speech-to-Text Configuration
+# ============================================================
+
+GROQ_API_KEY = os.getenv(
+    "GROQ_API_KEY",
+    "",
+).strip()
+
+GROQ_TRANSCRIPTION_MODEL = os.getenv(
+    "GROQ_TRANSCRIPTION_MODEL",
+    "whisper-large-v3",
+).strip()
+
+groq_client = (
+    Groq(api_key=GROQ_API_KEY)
+    if GROQ_API_KEY
+    else None
+)
+
+# Vercel request body maximum 4.5 MB.
+# Keep our audio below that limit.
+MAX_AUDIO_SIZE_BYTES = 3_500_000
+
+ALLOWED_AUDIO_TYPES = {
+    "audio/webm": ".webm",
+    "audio/mp4": ".mp4",
+    "audio/x-m4a": ".m4a",
+    "audio/m4a": ".m4a",
+    "audio/mpeg": ".mp3",
+    "audio/mp3": ".mp3",
+    "audio/ogg": ".ogg",
+    "audio/wav": ".wav",
+    "audio/x-wav": ".wav",
+    "application/octet-stream": ".webm",
+}
 ENABLE_SEMANTIC = os.getenv("ENABLE_SEMANTIC", "true").lower() == "true"
 _BUNDLED_SEMANTIC_MODEL = os.path.join(MODEL_DIR, "semantic_model")
 SEMANTIC_MODEL_PATH = os.getenv(
@@ -843,8 +887,49 @@ def root():
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "model_loaded": model is not None, "feature_count": len(feature_names), "disease_count": len(model.classes_) if model is not None else 0, "recommendation_count": len(recommendation_lookup), "critical_red_flags": len(CRITICAL_RED_FLAG_SYMPTOMS), "major_red_flags": len(MAJOR_RED_FLAG_SYMPTOMS), "shap_enabled": ENABLE_SHAP and shap_explainer is not None, "symptom_normalizer_loaded": symptom_normalizer is not None, "symptom_alias_count": len(symptom_normalizer.alias_map) if symptom_normalizer is not None else 0, "nearby_doctor_search": "Google Maps text link only; no Hospital API/Foursquare/Overpass backend", "database_provider": DB_PROVIDER}
+    return {
+        "status": "ok",
+        "model_loaded": model is not None,
+        "feature_count": len(feature_names),
+        "disease_count": (
+            len(model.classes_)
+            if model is not None
+            else 0
+        ),
+        "recommendation_count": len(
+            recommendation_lookup
+        ),
+        "critical_red_flags": len(
+            CRITICAL_RED_FLAG_SYMPTOMS
+        ),
+        "major_red_flags": len(
+            MAJOR_RED_FLAG_SYMPTOMS
+        ),
+        "shap_enabled": (
+            ENABLE_SHAP
+            and shap_explainer is not None
+        ),
+        "symptom_normalizer_loaded": (
+            symptom_normalizer is not None
+        ),
+        "symptom_alias_count": (
+            len(symptom_normalizer.alias_map)
+            if symptom_normalizer is not None
+            else 0
+        ),
+        "nearby_doctor_search": (
+            "Google Maps text link only"
+        ),
+        "database_provider": DB_PROVIDER,
 
+        # Voice configuration status
+        "voice_transcription_configured": (
+            groq_client is not None
+        ),
+        "voice_transcription_model": (
+            GROQ_TRANSCRIPTION_MODEL
+        ),
+    }
 
 
 @app.get("/api/symptoms")
@@ -855,7 +940,149 @@ def get_symptoms(q: Optional[str] = None, limit: int = 50):
         symptoms = [s for s in symptoms if query in s]
     return {"count": min(len(symptoms), limit), "symptoms": symptoms[:limit]}
 
+@app.post("/api/transcribe")
+async def transcribe_audio(
+    audio: UploadFile = File(...),
+):
+    """
+    Receive browser-recorded audio and convert it to text.
 
+    No language is selected by the user.
+    The transcription model detects Bangla, English,
+    Banglish, or mixed speech automatically.
+    """
+
+    if groq_client is None:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Voice transcription is not configured. "
+                "GROQ_API_KEY is missing."
+            ),
+        )
+
+    content_type = (
+        str(audio.content_type or "")
+        .split(";")[0]
+        .strip()
+        .lower()
+    )
+
+    if content_type not in ALLOWED_AUDIO_TYPES:
+        raise HTTPException(
+            status_code=415,
+            detail=(
+                "Unsupported audio format: "
+                f"{content_type or 'unknown'}"
+            ),
+        )
+
+    try:
+        audio_bytes = await audio.read()
+
+        if not audio_bytes:
+            raise HTTPException(
+                status_code=400,
+                detail="The voice recording is empty.",
+            )
+
+        if len(audio_bytes) > MAX_AUDIO_SIZE_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=(
+                    "Voice recording is too large. "
+                    "Please record a shorter message."
+                ),
+            )
+
+        extension = ALLOWED_AUDIO_TYPES.get(
+            content_type,
+            ".webm",
+        )
+
+        original_filename = str(
+            audio.filename or ""
+        ).strip()
+
+        filename = (
+            original_filename
+            if original_filename
+            else f"voice-recording{extension}"
+        )
+
+        transcription = (
+            groq_client.audio.transcriptions.create(
+                file=(
+                    filename,
+                    audio_bytes,
+                ),
+                model=GROQ_TRANSCRIPTION_MODEL,
+
+                # Mixed medical vocabulary helps the model
+                # recognize common symptom terms.
+                prompt=(
+                    "Medical symptom description. "
+                    "The speaker may use Bangla, English, "
+                    "Banglish, or code-mixed speech. "
+                    "Possible terms include fever, cough, "
+                    "headache, chest pain, shortness of breath, "
+                    "vomiting, dizziness, jor, kashi, "
+                    "matha betha, buk betha, shash kosto, "
+                    "pet betha, bomi, জ্বর, কাশি, মাথা ব্যথা, "
+                    "বুক ব্যথা, শ্বাসকষ্ট, পেট ব্যথা এবং বমি।"
+                ),
+
+                response_format="json",
+                temperature=0.0,
+
+                # Do not provide a fixed language.
+                # The model will detect it from the audio.
+            )
+        )
+
+        transcript_text = str(
+            getattr(
+                transcription,
+                "text",
+                "",
+            )
+            or ""
+        ).strip()
+
+        if not transcript_text:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "No recognizable speech was found. "
+                    "Please speak again."
+                ),
+            )
+
+        return {
+            "status": "ok",
+            "text": transcript_text,
+        }
+
+    except HTTPException:
+        raise
+
+    except Exception as error:
+        print(
+            "Voice transcription error:",
+            type(error).__name__,
+            str(error),
+        )
+
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "Could not convert voice to text. "
+                "Please try again."
+            ),
+        )
+
+    finally:
+        await audio.close()
 @app.post("/api/chat", response_model=ChatResponse)
 def chat(request: ChatRequest):
     extracted_symptoms = []
