@@ -73,7 +73,35 @@ function normalizeTranscript(text) {
 
   return value.replace(/\s+/g, " ").trim();
 }
+function getSupportedRecordingMimeType() {
+  if (!window.MediaRecorder) return "";
 
+  const supportedTypes = [
+    "audio/mp4;codecs=mp4a.40.2",
+    "audio/mp4",
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/ogg;codecs=opus",
+    "audio/ogg"
+  ];
+
+  return (
+    supportedTypes.find((type) =>
+      window.MediaRecorder.isTypeSupported(type)
+    ) || ""
+  );
+}
+
+function getAudioFileExtension(mimeType) {
+  const type = String(mimeType || "").toLowerCase();
+
+  if (type.includes("mp4")) return "mp4";
+  if (type.includes("ogg")) return "ogg";
+  if (type.includes("wav")) return "wav";
+  if (type.includes("mpeg") || type.includes("mp3")) return "mp3";
+
+  return "webm";
+}
 function pickBestTranscript(result) {
   const alternatives = Array.from({ length: result.length }, (_, index) => result[index]).filter(Boolean);
   if (!alternatives.length) return "";
@@ -502,8 +530,8 @@ export default function App() {
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const [voiceError, setVoiceError] = useState("");
-  const [voiceLanguage, setVoiceLanguage] = useState("bn-BD");
 
   const [authToken, setAuthToken] = useState(() => localStorage.getItem(TOKEN_STORAGE_KEY) || "");
   const [authChecking, setAuthChecking] = useState(() => Boolean(localStorage.getItem(TOKEN_STORAGE_KEY)));
@@ -517,12 +545,15 @@ export default function App() {
   const [currentChatId, setCurrentChatId] = useState(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState("");
-
+  const mediaRecorderRef = useRef(null);
+  const mediaStreamRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const recordingTimerRef = useRef(null);
+  const voiceSeedRef = useRef("");
   const messagesEndRef = useRef(null);
   const messageCountRef = useRef(1);
   const resultsRef = useRef(null);
-  const recognitionRef = useRef(null);
-  const voiceSeedRef = useRef("");
+  
 
   const getAuthHeaders = (tokenOverride) => {
     const token = tokenOverride || authToken;
@@ -573,12 +604,31 @@ export default function App() {
   }, [messages, loading]);
 
   useEffect(() => {
-    return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
+  return () => {
+    if (recordingTimerRef.current) {
+      window.clearTimeout(recordingTimerRef.current);
+    }
+
+    if (
+      mediaRecorderRef.current &&
+      mediaRecorderRef.current.state !== "inactive"
+    ) {
+      mediaRecorderRef.current.onstop = null;
+
+      try {
+        mediaRecorderRef.current.stop();
+      } catch (error) {
+        console.error("Recorder cleanup failed:", error);
       }
-    };
-  }, []);
+    }
+
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current
+        .getTracks()
+        .forEach((track) => track.stop());
+    }
+  };
+}, []);
 
   useEffect(() => {
   if (!authToken) {
@@ -937,182 +987,267 @@ export default function App() {
     }
   }
 
-  const startVoiceInput = async () => {
-  const SpeechRecognitionAPI =
-    window.SpeechRecognition || window.webkitSpeechRecognition;
+ const startVoiceInput = async () => {
+  if (isTranscribing) return;
 
-  if (!SpeechRecognitionAPI) {
+  if (
+    !navigator.mediaDevices?.getUserMedia ||
+    !window.MediaRecorder
+  ) {
     setVoiceError(
-      "Voice recognition is not supported in this browser. Please try Safari, Chrome, or Edge."
+      "Voice recording is not supported in this browser."
     );
     return;
   }
 
-  if (!window.isSecureContext) {
-    setVoiceError("Voice input requires a secure HTTPS connection.");
-    return;
-  }
-
-  // Stop current recognition
-  if (isListening && recognitionRef.current) {
+  // দ্বিতীয়বার microphone চাপলে recording বন্ধ হবে
+  if (
+    isListening &&
+    mediaRecorderRef.current &&
+    mediaRecorderRef.current.state !== "inactive"
+  ) {
     try {
-      recognitionRef.current.abort();
+      mediaRecorderRef.current.stop();
     } catch (error) {
-      console.error("Could not stop recognition:", error);
+      console.error("Could not stop recording:", error);
     }
 
-    recognitionRef.current = null;
-    setIsListening(false);
     return;
   }
 
-  // Explicitly request microphone permission
   try {
-    if (navigator.mediaDevices?.getUserMedia) {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: true
+    setVoiceError("");
+    setIsTranscribing(false);
+
+    const stream =
+      await navigator.mediaDevices.getUserMedia({
+        audio: {
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
       });
 
-      stream.getTracks().forEach((track) => track.stop());
+    mediaStreamRef.current = stream;
+    audioChunksRef.current = [];
+    voiceSeedRef.current = input.trim();
+
+    const mimeType =
+      getSupportedRecordingMimeType();
+
+    let recorder;
+
+    try {
+      recorder = mimeType
+        ? new MediaRecorder(stream, {
+            mimeType,
+            audioBitsPerSecond: 64000
+          })
+        : new MediaRecorder(stream);
+    } catch (error) {
+      console.warn(
+        "Preferred recording format failed:",
+        error
+      );
+
+      recorder = new MediaRecorder(stream);
     }
-  } catch (error) {
-    console.error("Microphone permission error:", error);
 
-    setVoiceError(
-      "Microphone access is blocked. Allow microphone permission for this website in Safari settings."
-    );
-    return;
-  }
+    mediaRecorderRef.current = recorder;
 
-  const recognition = new SpeechRecognitionAPI();
-
-  recognitionRef.current = recognition;
-  voiceSeedRef.current = input.trim();
-
-  recognition.lang = voiceLanguage;
-  recognition.interimResults = false;
-  recognition.continuous = false;
-
-  // More stable on mobile Safari
-  recognition.maxAlternatives = 1;
-
-  let receivedResult = false;
-
-  setVoiceError("");
-  setIsListening(true);
-
-  recognition.onstart = () => {
-    setVoiceError("");
-    setIsListening(true);
-  };
-
-  recognition.onaudiostart = () => {
-    console.log("Microphone audio capture started");
-  };
-
-  recognition.onspeechstart = () => {
-    console.log("Speech detected");
-  };
-
-  recognition.onresult = (event) => {
-    receivedResult = true;
-
-    const result =
-      event.results[event.resultIndex] ||
-      event.results[event.results.length - 1];
-
-    const transcript = result?.[0]?.transcript || "";
-
-    const combined = normalizeTranscript(
-      `${voiceSeedRef.current} ${transcript}`
-    );
-
-    if (combined) {
-      setInput(combined);
-      setVoiceError("");
-    } else {
-      setVoiceError("No recognizable speech was received.");
-    }
-  };
-
-  recognition.onspeechend = () => {
-    // Small delay prevents Safari from cutting the final word
-    window.setTimeout(() => {
-      try {
-        recognition.stop();
-      } catch (error) {
-        console.error("Recognition stop error:", error);
+    recorder.ondataavailable = (event) => {
+      if (event.data && event.data.size > 0) {
+        audioChunksRef.current.push(event.data);
       }
-    }, 350);
-  };
-
-  recognition.onnomatch = () => {
-    setVoiceError(
-      "Speech was heard but could not be understood. Speak slowly and try again."
-    );
-  };
-
-  recognition.onerror = (event) => {
-    console.error(
-      "Speech recognition error:",
-      event.error,
-      event.message || ""
-    );
-
-    const errorMessages = {
-      "no-speech":
-        "No speech was detected. Tap the microphone, wait one second, then speak.",
-      "audio-capture":
-        "The microphone could not capture audio. Check microphone permission in your browser settings.",
-      "not-allowed":
-        "Microphone permission is blocked. Allow microphone access for this website.",
-      "service-not-allowed":
-        "This browser did not allow the speech-recognition service. On iPhone, try Safari or use keyboard voice typing.",
-        "network":
-        "Speech recognition network error. Check your internet connection and try again.",
-      "language-not-supported":
-        `The selected language (${voiceLanguage}) is not supported by this browser.`,
-      "bad-grammar":
-        "The speech-recognition language configuration is not supported."
     };
 
-    if (event.error !== "aborted") {
+    recorder.onerror = (event) => {
+      console.error(
+        "Recording error:",
+        event.error || event
+      );
+
       setVoiceError(
-        errorMessages[event.error] ||
-          `Voice recognition failed: ${event.error || "unknown error"}`
+        "Voice recording failed. Please try again."
+      );
+
+      setIsListening(false);
+      setIsTranscribing(false);
+    };
+
+    recorder.onstop = async () => {
+      if (recordingTimerRef.current) {
+        window.clearTimeout(
+          recordingTimerRef.current
+        );
+
+        recordingTimerRef.current = null;
+      }
+
+      setIsListening(false);
+
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current
+          .getTracks()
+          .forEach((track) => track.stop());
+
+        mediaStreamRef.current = null;
+      }
+
+      const finalMimeType =
+        recorder.mimeType ||
+        mimeType ||
+        "audio/webm";
+
+      const audioBlob = new Blob(
+        audioChunksRef.current,
+        {
+          type: finalMimeType
+        }
+      );
+
+      audioChunksRef.current = [];
+
+      if (audioBlob.size < 500) {
+        setVoiceError(
+          "Recording was too short. Please speak again."
+        );
+
+        mediaRecorderRef.current = null;
+        return;
+      }
+
+      if (audioBlob.size > 3_500_000) {
+        setVoiceError(
+          "Recording is too long. Please record a shorter message."
+        );
+
+        mediaRecorderRef.current = null;
+        return;
+      }
+
+      const extension =
+        getAudioFileExtension(finalMimeType);
+
+      const formData = new FormData();
+
+      formData.append(
+        "audio",
+        audioBlob,
+        `voice-recording.${extension}`
+      );
+
+      try {
+        setIsTranscribing(true);
+        setVoiceError("");
+
+        const response = await fetch(
+          `${API_BASE}/api/transcribe`,
+          {
+            method: "POST",
+            body: formData
+          }
+        );
+
+        const responseData =
+          await response
+            .json()
+            .catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(
+            responseData.detail ||
+              "Voice transcription failed."
+          );
+        }
+
+        const transcript =
+          normalizeTranscript(
+            responseData.text || ""
+          );
+
+        if (!transcript) {
+          throw new Error(
+            "No recognizable speech was received."
+          );
+        }
+
+        const previousText =
+          voiceSeedRef.current.trim();
+
+        const finalText = previousText
+          ? normalizeTranscript(
+              `${previousText} ${transcript}`
+            )
+          : transcript;
+
+        setInput(finalText);
+        setVoiceError("");
+      } catch (error) {
+        console.error(
+          "Voice transcription error:",
+          error
+        );
+
+        setVoiceError(
+          error.message ||
+            "Could not convert voice to text."
+        );
+      } finally {
+        setIsTranscribing(false);
+        mediaRecorderRef.current = null;
+      }
+    };
+
+    recorder.start();
+    setIsListening(true);
+
+    // 12 seconds পরে নিজে recording বন্ধ হবে
+    recordingTimerRef.current =
+      window.setTimeout(() => {
+        if (
+          mediaRecorderRef.current &&
+          mediaRecorderRef.current.state !== "inactive"
+        ) {
+          mediaRecorderRef.current.stop();
+        }
+      }, 12000);
+  } catch (error) {
+    console.error(
+      "Microphone start error:",
+      error
+    );
+
+    setIsListening(false);
+    setIsTranscribing(false);
+
+    if (
+      error.name === "NotAllowedError" ||
+      error.name === "PermissionDeniedError"
+    ) {
+      setVoiceError(
+        "Microphone permission is blocked. Allow microphone access in browser settings."
+      );
+    } else if (error.name === "NotFoundError") {
+      setVoiceError(
+        "No microphone was found on this device."
+      );
+    } else if (error.name === "NotReadableError") {
+      setVoiceError(
+        "The microphone is being used by another application."
+      );
+    } else {
+      setVoiceError(
+        "Could not start voice recording. Please try again."
       );
     }
-
-    setIsListening(false);
-  };
-
-  recognition.onend = () => {
-    console.log("Speech recognition ended");
-
-    recognitionRef.current = null;
-    setIsListening(false);
-
-    if (!receivedResult) {
-      console.log("Recognition ended without a transcript");
-    }
-  };
-
-  try {
-    recognition.start();
-  } catch (error) {
-    console.error("Recognition start error:", error);
-
-    recognitionRef.current = null;
-    setIsListening(false);
-    setVoiceError(
-      "Voice recognition could not start. Wait a moment and tap the microphone again."
-    );
   }
 };
 async function sendMessage() {
   const text = input.trim();
 
-  if (!text || loading) return;
+  if (!text || loading || isTranscribing) return;
 
   const newUserMessage = {
     id: messageCountRef.current++,
@@ -1652,7 +1787,7 @@ async function sendMessage() {
               }}
               onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
               placeholder="Example: amar jor ase, kashi hocche / chest pain..."
-              disabled={loading}
+              disabled={loading || isTranscribing}
               aria-label="Type your symptoms"
             />
             {showSuggestions && suggestions.length > 0 && (
@@ -1665,38 +1800,61 @@ async function sendMessage() {
               </div>
             )}
             <button
-              type="button"
-              className={`voice-icon-btn ${isListening ? "listening" : ""}`}
-              onClick={startVoiceInput}
-              disabled={loading}
-              title={isListening ? "Stop listening" : "Start voice input"}
-              aria-label="Toggle voice input"
-            >
-              <MicIcon listening={isListening} />
-            </button>
+  type="button"
+  className={`voice-icon-btn ${
+    isListening ? "listening" : ""
+  } ${
+    isTranscribing ? "transcribing" : ""
+  }`}
+  onClick={startVoiceInput}
+  disabled={loading || isTranscribing}
+  title={
+    isTranscribing
+      ? "Converting voice to text"
+      : isListening
+        ? "Stop recording"
+        : "Start voice recording"
+  }
+  aria-label={
+    isListening
+      ? "Stop voice recording"
+      : "Start voice recording"
+  }
+>
+  <MicIcon listening={isListening} />
+</button>
           </div>
 
-          <button onClick={sendMessage} disabled={loading} className={`send-btn ${loading ? "loading" : ""}`} aria-label="Send message">
+          <button onClick={sendMessage}disabled={loading || isTranscribing} className={`send-btn ${loading ? "loading" : ""}`} aria-label="Send message">
             {loading ? "⏳" : "➤"}
           </button>
 
           <div className="composer-meta">
-            <select
-              className="voice-language-select"
-              value={voiceLanguage}
-              onChange={(e) => setVoiceLanguage(e.target.value)}
-              disabled={isListening}
-              title="Voice recognition language"
-            >
-              <option value="bn-BD">বাংলা voice</option>
-              <option value="en-US">English / Banglish voice</option>
-            </select>
-            {isListening && <span className="voice-status">Listening...</span>}
-            {voiceError && <span className="voice-error">{voiceError}</span>}
-            {!voiceError && !isListening && <span className="voice-hint">Speak one sentence clearly, then wait for it to appear.</span>}
-          </div>
-        </div>
-      </main>
-    </div>
+  {isListening && !isTranscribing && (
+    <span className="voice-status">
+      Recording... speak now, then tap the microphone again.
+    </span>
+  )}
+
+  {isTranscribing && (
+    <span className="voice-status">
+      Detecting language and converting voice to text...
+    </span>
+  )}
+
+  {voiceError && (
+    <span className="voice-error">
+      {voiceError}
+    </span>
+  )}
+
+  {!voiceError &&
+    !isListening &&
+    !isTranscribing && (
+      <span className="voice-hint">
+        Tap the microphone and speak in Bangla, English, or mixed language.
+      </span>
+    )}
+</div>
   );
 }
