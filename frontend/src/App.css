@@ -2776,3 +2776,45 @@ body {
   border-radius: 8px;
   font-size: 15px;
 }
+/* Automatic multilingual voice recording */
+
+.voice-icon-btn.transcribing {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.composer-meta .voice-status,
+.composer-meta .voice-hint,
+.composer-meta .voice-error {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.composer-meta .voice-status {
+  font-weight: 600;
+}
+
+.composer-meta .voice-error {
+  color: #dc2626;
+}
+
+@media screen and (max-width: 768px) {
+  .composer-meta {
+    display: flex !important;
+    width: 100%;
+    min-width: 0;
+    margin: 0 !important;
+  }
+
+  .composer-meta .voice-status,
+  .composer-meta .voice-hint,
+  .composer-meta .voice-error {
+    position: static !important;
+    width: 100%;
+    margin: 0;
+    font-size: 11px;
+  }
+}
