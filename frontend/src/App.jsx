@@ -1774,7 +1774,7 @@ async function sendMessage() {
           <div ref={messagesEndRef} />
         </div>
 
-        <div className="composer">
+               <div className="composer">
           <div className="input-wrapper">
             <input
               value={input}
@@ -1785,76 +1785,91 @@ async function sendMessage() {
                   sendMessage();
                 }
               }}
-              onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+              onBlur={() =>
+                setTimeout(() => setShowSuggestions(false), 200)
+              }
               placeholder="Example: amar jor ase, kashi hocche / chest pain..."
               disabled={loading || isTranscribing}
               aria-label="Type your symptoms"
             />
+
             {showSuggestions && suggestions.length > 0 && (
               <div className="autocomplete-dropdown">
-                {suggestions.map((s) => (
-                  <div key={s} className="suggestion-item" onClick={() => addSuggestion(s)}>
-                    {s}
+                {suggestions.map((symptom) => (
+                  <div
+                    key={symptom}
+                    className="suggestion-item"
+                    onClick={() => addSuggestion(symptom)}
+                  >
+                    {symptom}
                   </div>
                 ))}
               </div>
             )}
+
             <button
-  type="button"
-  className={`voice-icon-btn ${
-    isListening ? "listening" : ""
-  } ${
-    isTranscribing ? "transcribing" : ""
-  }`}
-  onClick={startVoiceInput}
-  disabled={loading || isTranscribing}
-  title={
-    isTranscribing
-      ? "Converting voice to text"
-      : isListening
-        ? "Stop recording"
-        : "Start voice recording"
-  }
-  aria-label={
-    isListening
-      ? "Stop voice recording"
-      : "Start voice recording"
-  }
->
-  <MicIcon listening={isListening} />
-</button>
+              type="button"
+              className={`voice-icon-btn ${
+                isListening ? "listening" : ""
+              } ${isTranscribing ? "transcribing" : ""}`}
+              onClick={startVoiceInput}
+              disabled={loading || isTranscribing}
+              title={
+                isTranscribing
+                  ? "Converting voice to text"
+                  : isListening
+                    ? "Stop recording"
+                    : "Start voice recording"
+              }
+              aria-label={
+                isListening
+                  ? "Stop voice recording"
+                  : "Start voice recording"
+              }
+            >
+              <MicIcon listening={isListening} />
+            </button>
           </div>
 
-          <button onClick={sendMessage}disabled={loading || isTranscribing} className={`send-btn ${loading ? "loading" : ""}`} aria-label="Send message">
+          <button
+            type="button"
+            onClick={sendMessage}
+            disabled={loading || isTranscribing}
+            className={`send-btn ${loading ? "loading" : ""}`}
+            aria-label="Send message"
+          >
             {loading ? "⏳" : "➤"}
           </button>
 
           <div className="composer-meta">
-  {isListening && !isTranscribing && (
-    <span className="voice-status">
-      Recording... speak now, then tap the microphone again.
-    </span>
-  )}
+            {isListening && !isTranscribing && (
+              <span className="voice-status">
+                Recording... speak now, then tap the microphone again.
+              </span>
+            )}
 
-  {isTranscribing && (
-    <span className="voice-status">
-      Detecting language and converting voice to text...
-    </span>
-  )}
+            {isTranscribing && (
+              <span className="voice-status">
+                Detecting language and converting voice to text...
+              </span>
+            )}
 
-  {voiceError && (
-    <span className="voice-error">
-      {voiceError}
-    </span>
-  )}
+            {voiceError && (
+              <span className="voice-error">
+                {voiceError}
+              </span>
+            )}
 
-  {!voiceError &&
-    !isListening &&
-    !isTranscribing && (
-      <span className="voice-hint">
-        Tap the microphone and speak in Bangla, English, or mixed language.
-      </span>
-    )}
-</div>
+            {!voiceError &&
+              !isListening &&
+              !isTranscribing && (
+                <span className="voice-hint">
+                  Tap the microphone and speak in Bangla, English, or mixed language.
+                </span>
+              )}
+          </div>
+        </div>
+      </main>
+    </div>
   );
 }
