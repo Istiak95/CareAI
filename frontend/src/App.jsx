@@ -530,7 +530,7 @@ export default function App() {
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [voiceLanguage, setVoiceLanguage] = useState("en-IN");
   const [voiceError, setVoiceError] = useState("");
 
   const [authToken, setAuthToken] = useState(() => localStorage.getItem(TOKEN_STORAGE_KEY) || "");
@@ -545,10 +545,7 @@ export default function App() {
   const [currentChatId, setCurrentChatId] = useState(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState("");
-  const mediaRecorderRef = useRef(null);
-  const mediaStreamRef = useRef(null);
-  const audioChunksRef = useRef([]);
-  const recordingTimerRef = useRef(null);
+  const recognitionRef = useRef(null);
   const voiceSeedRef = useRef("");
   const messagesEndRef = useRef(null);
   const messageCountRef = useRef(1);
@@ -603,29 +600,16 @@ export default function App() {
     scrollToBottom();
   }, [messages, loading]);
 
-  useEffect(() => {
+ useEffect(() => {
   return () => {
-    if (recordingTimerRef.current) {
-      window.clearTimeout(recordingTimerRef.current);
-    }
-
-    if (
-      mediaRecorderRef.current &&
-      mediaRecorderRef.current.state !== "inactive"
-    ) {
-      mediaRecorderRef.current.onstop = null;
-
+    if (recognitionRef.current) {
       try {
-        mediaRecorderRef.current.stop();
+        recognitionRef.current.stop();
       } catch (error) {
-        console.error("Recorder cleanup failed:", error);
+        console.error("Voice cleanup failed:", error);
       }
-    }
 
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current
-        .getTracks()
-        .forEach((track) => track.stop());
+      recognitionRef.current = null;
     }
   };
 }, []);
@@ -988,15 +972,6 @@ export default function App() {
   }
 
  const startVoiceInput = async () => {
-  if (isTranscribing) return;
-
-  if (
-    !navigator.mediaDevices?.getUserMedia ||
-    !window.MediaRecorder
-  ) {
-    setVoiceError(
-      "Voice recording is not supported in this browser."
-    );
     return;
   }
 
@@ -1247,7 +1222,7 @@ export default function App() {
 async function sendMessage() {
   const text = input.trim();
 
-  if (!text || loading || isTranscribing) return;
+  if (!text || loading) return;
 
   const newUserMessage = {
     id: messageCountRef.current++,
@@ -1789,7 +1764,7 @@ async function sendMessage() {
                 setTimeout(() => setShowSuggestions(false), 200)
               }
               placeholder="Example: amar jor ase, kashi hocche / chest pain..."
-              disabled={loading || isTranscribing}
+              disabled={loading}
               aria-label="Type your symptoms"
             />
 
@@ -1808,33 +1783,31 @@ async function sendMessage() {
             )}
 
             <button
-              type="button"
-              className={`voice-icon-btn ${
-                isListening ? "listening" : ""
-              } ${isTranscribing ? "transcribing" : ""}`}
-              onClick={startVoiceInput}
-              disabled={loading || isTranscribing}
-              title={
-                isTranscribing
-                  ? "Converting voice to text"
-                  : isListening
-                    ? "Stop recording"
-                    : "Start voice recording"
-              }
-              aria-label={
-                isListening
-                  ? "Stop voice recording"
-                  : "Start voice recording"
-              }
-            >
-              <MicIcon listening={isListening} />
-            </button>
+  type="button"
+  className={`voice-icon-btn ${
+    isListening ? "listening" : ""
+  }`}
+  onClick={startVoiceInput}
+  disabled={loading}
+  title={
+    isListening
+      ? "Stop listening"
+      : "Start voice input"
+  }
+  aria-label={
+    isListening
+      ? "Stop voice input"
+      : "Start voice input"
+  }
+>
+  <MicIcon listening={isListening} />
+</button>
           </div>
 
           <button
             type="button"
             onClick={sendMessage}
-            disabled={loading || isTranscribing}
+            disabled={loading}
             className={`send-btn ${loading ? "loading" : ""}`}
             aria-label="Send message"
           >
@@ -1842,32 +1815,46 @@ async function sendMessage() {
           </button>
 
           <div className="composer-meta">
-            {isListening && !isTranscribing && (
-              <span className="voice-status">
-                Recording... speak now, then tap the microphone again.
-              </span>
-            )}
+  <select
+    className="voice-language-select"
+    value={voiceLanguage}
+    onChange={(event) =>
+      setVoiceLanguage(event.target.value)
+    }
+    disabled={isListening}
+    title="Voice recognition language"
+  >
+    <option value="en-IN">
+      Banglish voice
+    </option>
 
-            {isTranscribing && (
-              <span className="voice-status">
-                Detecting language and converting voice to text...
-              </span>
-            )}
+    <option value="bn-BD">
+      বাংলা voice
+    </option>
 
-            {voiceError && (
-              <span className="voice-error">
-                {voiceError}
-              </span>
-            )}
+    <option value="en-US">
+      English voice
+    </option>
+  </select>
 
-            {!voiceError &&
-              !isListening &&
-              !isTranscribing && (
-                <span className="voice-hint">
-                  Tap the microphone and speak in Bangla, English, or mixed language.
-                </span>
-              )}
-          </div>
+  {isListening && (
+    <span className="voice-status">
+      Listening...
+    </span>
+  )}
+
+  {voiceError && (
+    <span className="voice-error">
+      {voiceError}
+    </span>
+  )}
+
+  {!voiceError && !isListening && (
+    <span className="voice-hint">
+      Select a language, tap the microphone and speak clearly.
+    </span>
+  )}
+</div>
         </div>
       </main>
     </div>
