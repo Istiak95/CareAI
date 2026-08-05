@@ -971,252 +971,160 @@ export default function App() {
     }
   }
 
- const startVoiceInput = async () => {
+const startVoiceInput = () => {
+  const SpeechRecognitionAPI =
+    window.SpeechRecognition ||
+    window.webkitSpeechRecognition;
+
+  if (!SpeechRecognitionAPI) {
+    setVoiceError(
+      "Voice recognition is not supported. Please use Chrome or Edge."
+    );
     return;
   }
 
-  // দ্বিতীয়বার microphone চাপলে recording বন্ধ হবে
-  if (
-    isListening &&
-    mediaRecorderRef.current &&
-    mediaRecorderRef.current.state !== "inactive"
-  ) {
+  // Microphone আবার চাপলে listening বন্ধ হবে
+  if (isListening && recognitionRef.current) {
     try {
-      mediaRecorderRef.current.stop();
+      recognitionRef.current.stop();
     } catch (error) {
-      console.error("Could not stop recording:", error);
-    }
-
-    return;
-  }
-
-  try {
-    setVoiceError("");
-    setIsTranscribing(false);
-
-    const stream =
-      await navigator.mediaDevices.getUserMedia({
-        audio: {
-          channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        }
-      });
-
-    mediaStreamRef.current = stream;
-    audioChunksRef.current = [];
-    voiceSeedRef.current = input.trim();
-
-    const mimeType =
-      getSupportedRecordingMimeType();
-
-    let recorder;
-
-    try {
-      recorder = mimeType
-        ? new MediaRecorder(stream, {
-            mimeType,
-            audioBitsPerSecond: 64000
-          })
-        : new MediaRecorder(stream);
-    } catch (error) {
-      console.warn(
-        "Preferred recording format failed:",
+      console.error(
+        "Could not stop voice recognition:",
         error
       );
-
-      recorder = new MediaRecorder(stream);
     }
 
-    mediaRecorderRef.current = recorder;
+    return;
+  }
 
-    recorder.ondataavailable = (event) => {
-      if (event.data && event.data.size > 0) {
-        audioChunksRef.current.push(event.data);
-      }
-    };
+  const recognition = new SpeechRecognitionAPI();
 
-    recorder.onerror = (event) => {
-      console.error(
-        "Recording error:",
-        event.error || event
-      );
+  recognitionRef.current = recognition;
+  voiceSeedRef.current = input.trim();
 
+  recognition.lang = voiceLanguage;
+  recognition.interimResults = false;
+  recognition.continuous = false;
+  recognition.maxAlternatives = 5;
+
+  let receivedResult = false;
+
+  recognition.onstart = () => {
+    setVoiceError("");
+    setIsListening(true);
+  };
+
+  recognition.onresult = (event) => {
+    const result =
+      event.results[event.resultIndex] ||
+      event.results[event.results.length - 1];
+
+    const transcript = pickBestTranscript(result);
+
+    if (!transcript.trim()) {
       setVoiceError(
-        "Voice recording failed. Please try again."
+        "No recognizable speech was received."
       );
+      return;
+    }
 
-      setIsListening(false);
-      setIsTranscribing(false);
-    };
+    receivedResult = true;
 
-    recorder.onstop = async () => {
-      if (recordingTimerRef.current) {
-        window.clearTimeout(
-          recordingTimerRef.current
-        );
+    const previousText =
+      voiceSeedRef.current.trim();
 
-        recordingTimerRef.current = null;
-      }
+    const finalText = previousText
+      ? normalizeTranscript(
+          `${previousText} ${transcript}`
+        )
+      : normalizeTranscript(transcript);
 
-      setIsListening(false);
+    setInput(finalText);
+    setVoiceError("");
+  };
 
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current
-          .getTracks()
-          .forEach((track) => track.stop());
-
-        mediaStreamRef.current = null;
-      }
-
-      const finalMimeType =
-        recorder.mimeType ||
-        mimeType ||
-        "audio/webm";
-
-      const audioBlob = new Blob(
-        audioChunksRef.current,
-        {
-          type: finalMimeType
-        }
-      );
-
-      audioChunksRef.current = [];
-
-      if (audioBlob.size < 500) {
-        setVoiceError(
-          "Recording was too short. Please speak again."
-        );
-
-        mediaRecorderRef.current = null;
-        return;
-      }
-
-      if (audioBlob.size > 3_500_000) {
-        setVoiceError(
-          "Recording is too long. Please record a shorter message."
-        );
-
-        mediaRecorderRef.current = null;
-        return;
-      }
-
-      const extension =
-        getAudioFileExtension(finalMimeType);
-
-      const formData = new FormData();
-
-      formData.append(
-        "audio",
-        audioBlob,
-        `voice-recording.${extension}`
-      );
-
+  recognition.onspeechend = () => {
+    window.setTimeout(() => {
       try {
-        setIsTranscribing(true);
-        setVoiceError("");
-
-        const response = await fetch(
-          `${API_BASE}/api/transcribe`,
-          {
-            method: "POST",
-            body: formData
-          }
-        );
-
-        const responseData =
-          await response
-            .json()
-            .catch(() => ({}));
-
-        if (!response.ok) {
-          throw new Error(
-            responseData.detail ||
-              "Voice transcription failed."
-          );
-        }
-
-        const transcript =
-          normalizeTranscript(
-            responseData.text || ""
-          );
-
-        if (!transcript) {
-          throw new Error(
-            "No recognizable speech was received."
-          );
-        }
-
-        const previousText =
-          voiceSeedRef.current.trim();
-
-        const finalText = previousText
-          ? normalizeTranscript(
-              `${previousText} ${transcript}`
-            )
-          : transcript;
-
-        setInput(finalText);
-        setVoiceError("");
+        recognition.stop();
       } catch (error) {
         console.error(
-          "Voice transcription error:",
+          "Recognition stop error:",
           error
         );
-
-        setVoiceError(
-          error.message ||
-            "Could not convert voice to text."
-        );
-      } finally {
-        setIsTranscribing(false);
-        mediaRecorderRef.current = null;
       }
+    }, 300);
+  };
+
+  recognition.onnomatch = () => {
+    setVoiceError(
+      "Speech could not be understood. Please speak slowly and clearly."
+    );
+  };
+
+  recognition.onerror = (event) => {
+    console.error(
+      "Speech recognition error:",
+      event.error
+    );
+
+    const errorMessages = {
+      "no-speech":
+        "No speech was detected. Tap the microphone and speak again.",
+
+      "audio-capture":
+        "The microphone could not capture audio.",
+
+      "not-allowed":
+        "Microphone permission is blocked. Please allow microphone access.",
+
+      "service-not-allowed":
+        "The browser blocked the voice recognition service.",
+
+      network:
+        "Voice recognition network error. Check your internet connection.",
+
+      "language-not-supported":
+        "The selected voice language is not supported."
     };
 
-    recorder.start();
-    setIsListening(true);
+    if (event.error !== "aborted") {
+      setVoiceError(
+        errorMessages[event.error] ||
+          `Voice recognition failed: ${
+            event.error || "unknown error"
+          }`
+      );
+    }
 
-    // 12 seconds পরে নিজে recording বন্ধ হবে
-    recordingTimerRef.current =
-      window.setTimeout(() => {
-        if (
-          mediaRecorderRef.current &&
-          mediaRecorderRef.current.state !== "inactive"
-        ) {
-          mediaRecorderRef.current.stop();
-        }
-      }, 12000);
+    setIsListening(false);
+  };
+
+  recognition.onend = () => {
+    recognitionRef.current = null;
+    setIsListening(false);
+
+    if (!receivedResult) {
+      console.log(
+        "Voice recognition ended without a transcript."
+      );
+    }
+  };
+
+  try {
+    recognition.start();
   } catch (error) {
     console.error(
-      "Microphone start error:",
+      "Voice recognition start error:",
       error
     );
 
+    recognitionRef.current = null;
     setIsListening(false);
-    setIsTranscribing(false);
 
-    if (
-      error.name === "NotAllowedError" ||
-      error.name === "PermissionDeniedError"
-    ) {
-      setVoiceError(
-        "Microphone permission is blocked. Allow microphone access in browser settings."
-      );
-    } else if (error.name === "NotFoundError") {
-      setVoiceError(
-        "No microphone was found on this device."
-      );
-    } else if (error.name === "NotReadableError") {
-      setVoiceError(
-        "The microphone is being used by another application."
-      );
-    } else {
-      setVoiceError(
-        "Could not start voice recording. Please try again."
-      );
-    }
+    setVoiceError(
+      "Voice recognition could not start. Tap the microphone again."
+    );
   }
 };
 async function sendMessage() {
