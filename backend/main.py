@@ -961,146 +961,9 @@ def contains_arabic_script(text: str) -> bool:
         for char in value
     )
 
-@app.post("/api/transcribe")
-async def transcribe_audio(
-    audio: UploadFile = File(...),
-):
-    """
-    Receive browser-recorded audio and convert it to text.
-
-    No language is selected by the user.
-    The transcription model detects Bangla, English,
-    Banglish, or mixed speech automatically.
-    """
-
-    client = get_groq_client()
-        
-
-    content_type = (
-        str(audio.content_type or "")
-        .split(";")[0]
-        .strip()
-        .lower()
-    )
-
-    if content_type not in ALLOWED_AUDIO_TYPES:
-        raise HTTPException(
-            status_code=415,
-            detail=(
-                "Unsupported audio format: "
-                f"{content_type or 'unknown'}"
-            ),
-        )
-
-    try:
-        audio_bytes = await audio.read()
-
-        if not audio_bytes:
-            raise HTTPException(
-                status_code=400,
-                detail="The voice recording is empty.",
-            )
-
-        if len(audio_bytes) > MAX_AUDIO_SIZE_BYTES:
-            raise HTTPException(
-                status_code=413,
-                detail=(
-                    "Voice recording is too large. "
-                    "Please record a shorter message."
-                ),
-            )
-
-        extension = ALLOWED_AUDIO_TYPES.get(
-            content_type,
-            ".webm",
-        )
-
-        original_filename = str(
-            audio.filename or ""
-        ).strip()
-
-        filename = (
-            original_filename
-            if original_filename
-            else f"voice-recording{extension}"
-        )
-
-       # First attempt: automatic language detection
-transcription = groq_client.audio.transcriptions.create(
-    file=(filename, audio_bytes),
-    model=GROQ_TRANSCRIPTION_MODEL,
-    response_format="json",
-    temperature=0.0,
-)
-
-transcript_text = str(
-    getattr(transcription, "text", "") or ""
-).strip()
-
-# Sometimes short Bangla/Banglish speech is incorrectly
-# returned using Arabic script. Retry internally as Bangla.
-if contains_arabic_script(transcript_text):
-    print(
-        "Arabic-script transcription detected. "
-        "Retrying with Bengali language."
-    )
-
-    bangla_transcription = (
-        groq_client.audio.transcriptions.create(
-            file=(filename, audio_bytes),
-            model=GROQ_TRANSCRIPTION_MODEL,
-            language="bn",
-            prompt=(
-                "রোগীর স্বাস্থ্য উপসর্গ সঠিকভাবে লিখুন। "
-                "সম্ভাব্য শব্দ: জ্বর, কাশি, মাথা ব্যথা, "
-                "বুক ব্যথা, শ্বাসকষ্ট, পেট ব্যথা, বমি, "
-                "মাথা ঘোরা, শরীর ব্যথা।"
-            ),
-            response_format="json",
-            temperature=0.0,
-        )
-    )
-
-    retry_text = str(
-        getattr(bangla_transcription, "text", "") or ""
-    ).strip()
-
-    if retry_text:
-        transcript_text = retry_text
-        if not transcript_text:
-            raise HTTPException(
-                status_code=422,
-                detail=(
-                    "No recognizable speech was found. "
-                    "Please speak again."
-                ),
-            )
-
-        return {
-            "status": "ok",
-            "text": transcript_text,
-        }
-
-    except HTTPException:
-        raise
-
-    except Exception as error:
-        print(
-            "Voice transcription error:",
-            type(error).__name__,
-            str(error),
-        )
-
-        raise HTTPException(
-            status_code=502,
-            detail=(
-                "Could not convert voice to text. "
-                "Please try again."
-            ),
-        )
-
-    finally:
-        await audio.close()
+uest.enable_shap if request.enable_shap is not None else ENABLE_SHAP,
+        shap_nsamples=request.shap_nsamples or SHAP_NSAMPLES_DEFAULT,
+    
 @app.post("/api/chat", response_model=ChatResponse)
 def chat(request: ChatRequest):
     extracted_symptoms = []
@@ -1125,9 +988,7 @@ def chat(request: ChatRequest):
     result = predict_pipeline(
         user_symptoms=extracted_symptoms,
         top_k=request.top_k or TOP_K_DEFAULT,
-        enable_shap=request.enable_shap if request.enable_shap is not None else ENABLE_SHAP,
-        shap_nsamples=request.shap_nsamples or SHAP_NSAMPLES_DEFAULT,
-    )
+        enable_shap=req
 
     message = result["message"]
     if result["status"] == "failed" and possible_symptoms:
