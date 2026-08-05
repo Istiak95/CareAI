@@ -887,8 +887,6 @@ def save_report(request: ReportSaveRequest, current_user: Dict[str, Any] = Depen
 @app.get("/")
 def root():
     return {"app": "MediNLP Medical Chatbot API", "status": "running", "features": len(feature_names), "diseases": len(model.classes_) if model is not None else 0, "input_note": "Natural English/Banglish/Bangla symptom text is normalized to model symptoms before prediction."}
-
-
 @app.get("/api/health")
 def health():
     return {
@@ -925,6 +923,156 @@ def health():
             "Google Maps text link only"
         ),
         "database_provider": DB_PROVIDER,
+    }
 
-     
+
+@app.get("/api/symptoms")
+def get_symptoms(
+    q: Optional[str] = None,
+    limit: int = 50,
+):
+    symptoms = feature_names
+
+    if q:
+        query = clean_symptom_text(q)
+
+        symptoms = [
+            symptom
+            for symptom in symptoms
+            if query in symptom
+        ]
+
+    return {
+        "count": min(len(symptoms), limit),
+        "symptoms": symptoms[:limit],
+    }
+
+
+@app.post(
+    "/api/chat",
+    response_model=ChatResponse,
+)
+def chat(request: ChatRequest):
+    extracted_symptoms: List[str] = []
+
+    extraction_details: Optional[
+        Dict[str, Any]
+    ] = None
+
+    possible_symptoms: List[
+        Dict[str, Any]
+    ] = []
+
+    negated_symptoms: List[str] = []
+
+    # Direct symptom-list input
+    if request.symptoms:
+        for symptom in request.symptoms:
+            cleaned_symptom = clean_symptom_text(
+                symptom
+            )
+
+            if (
+                cleaned_symptom
+                and cleaned_symptom
+                not in extracted_symptoms
+            ):
+                extracted_symptoms.append(
+                    cleaned_symptom
+                )
+
+    # English, Banglish or Bangla message
+    if request.message:
+        extraction_details = (
+            extract_symptoms_from_message(
+                request.message
+            )
+        )
+
+        possible_symptoms = (
+            extraction_details.get(
+                "possible_symptoms",
+                [],
+            )
+        )
+
+        negated_symptoms = (
+            extraction_details.get(
+                "negated_symptoms",
+                [],
+            )
+        )
+
+        for symptom in extraction_details.get(
+            "model_input",
+            [],
+        ):
+            if symptom not in extracted_symptoms:
+                extracted_symptoms.append(
+                    symptom
+                )
+
+    result = predict_pipeline(
+        user_symptoms=extracted_symptoms,
+
+        top_k=(
+            request.top_k
+            or TOP_K_DEFAULT
+        ),
+
+        enable_shap=(
+            request.enable_shap
+            if request.enable_shap
+            is not None
+            else ENABLE_SHAP
+        ),
+
+        shap_nsamples=(
+            request.shap_nsamples
+            or SHAP_NSAMPLES_DEFAULT
+        ),
+    )
+
+    response_message = result["message"]
+
+    if (
+        result["status"] == "failed"
+        and possible_symptoms
+    ):
+        response_message = (
+            "No high-confidence symptom matched "
+            "the model feature list. Possible "
+            "symptoms were detected. Please "
+            "rephrase your symptoms."
+        )
+
+    return {
+        "status": result["status"],
+        "red_flag": result["red_flag"],
+        "message": response_message,
+
+        "extracted_symptoms":
+            extracted_symptoms,
+
+        "matched_symptoms":
+            result["matched_symptoms"],
+
+        "unmatched_symptoms":
+            result["unmatched_symptoms"],
+
+        "red_flag_result":
+            result["red_flag_result"],
+
+        "top_predictions":
+            result["top_predictions"],
+
+        "possible_symptoms":
+            possible_symptoms,
+
+        "negated_symptoms":
+            negated_symptoms,
+
+        "symptom_extraction":
+            extraction_details,
+    }
 
