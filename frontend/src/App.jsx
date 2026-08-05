@@ -1479,7 +1479,7 @@ async function sendMessage() {
   if (authChecking) {
     return (
       <div className={`auth-gate ${darkMode ? "dark-mode" : ""}`}>
-        <div className="auth-gate-card auth-loading-card">Loading MediNLP...</div>
+        <div className="auth-gate-card auth-loading-card">Loading CareAI...</div>
       </div>
     );
   }
