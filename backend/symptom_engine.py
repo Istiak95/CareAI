@@ -685,40 +685,63 @@ class SymptomNormalizer:
                 self._add_match(accepted, best_symptom, phrase, "fuzzy_matching", best_score)
             elif len(phrase) > 4 and best_symptom not in accepted:
                 self._add_match(possible, best_symptom, phrase, "fuzzy_possible", best_score, status="possible")
-
         # 4) SentenceTransformer semantic fallback.
-        # Use semantic matching ONLY as a fallback when exact/alias/fuzzy matching
-        # did not confidently find any symptom. This prevents semantic similarity
-        # from adding extra false red-flag symptoms to normal Bangla/Banglish inputs
-        # such as fever + cough + headache.
-        # Semantic matching will provide suggestions only.
-# It must never directly trigger a disease prediction.
-if not accepted:
-    semantic_matches: Dict[str, SymptomMatch] = {}
+        # Semantic matches are suggestions only.
+        # They must never directly trigger disease prediction.
+        if not accepted:
+            semantic_matches: Dict[str, SymptomMatch] = {}
 
-    self._extract_by_semantic(
-        cleaned,
-        semantic_matches,
-        negated,
-    )
+            self._extract_by_semantic(
+                cleaned,
+                semantic_matches,
+                negated,
+            )
 
-    for symptom, match in semantic_matches.items():
-        match.status = "possible"
-        match.method = "semantic_possible"
-        possible[symptom] = match
+            for symptom, match in semantic_matches.items():
+                match.status = "possible"
+                match.method = "semantic_possible"
+                possible[symptom] = match
 
-        accepted_list = sorted(accepted.values(), key=lambda m: (-m.score, m.symptom))
-        possible_list = [m for symptom, m in possible.items() if symptom not in accepted]
-        possible_list = sorted(possible_list, key=lambda m: (-m.score, m.symptom))[:10]
+        accepted_list = sorted(
+            accepted.values(),
+            key=lambda m: (-m.score, m.symptom),
+        )
 
-        accepted_symptoms = self._remove_generic_overlaps([m.symptom for m in accepted_list])
-        accepted_list = [m for m in accepted_list if m.symptom in accepted_symptoms]
+        possible_list = [
+            match
+            for symptom, match in possible.items()
+            if symptom not in accepted
+        ]
+
+        possible_list = sorted(
+            possible_list,
+            key=lambda m: (-m.score, m.symptom),
+        )[:10]
+
+        accepted_symptoms = self._remove_generic_overlaps(
+            [
+                match.symptom
+                for match in accepted_list
+            ]
+        )
+
+        accepted_list = [
+            match
+            for match in accepted_list
+            if match.symptom in accepted_symptoms
+        ]
 
         return {
             "raw_input": message,
             "cleaned_input": cleaned,
-            "accepted_symptoms": [m.to_dict() for m in accepted_list],
-            "possible_symptoms": [m.to_dict() for m in possible_list],
+            "accepted_symptoms": [
+                match.to_dict()
+                for match in accepted_list
+            ],
+            "possible_symptoms": [
+                match.to_dict()
+                for match in possible_list
+            ],
             "negated_symptoms": sorted(negated),
             "model_input": accepted_symptoms,
             "semantic_enabled": self.semantic_enabled,
