@@ -691,8 +691,21 @@ class SymptomNormalizer:
         # did not confidently find any symptom. This prevents semantic similarity
         # from adding extra false red-flag symptoms to normal Bangla/Banglish inputs
         # such as fever + cough + headache.
-        if not accepted:
-            self._extract_by_semantic(cleaned, accepted, negated)
+        # Semantic matching will provide suggestions only.
+# It must never directly trigger a disease prediction.
+if not accepted:
+    semantic_matches: Dict[str, SymptomMatch] = {}
+
+    self._extract_by_semantic(
+        cleaned,
+        semantic_matches,
+        negated,
+    )
+
+    for symptom, match in semantic_matches.items():
+        match.status = "possible"
+        match.method = "semantic_possible"
+        possible[symptom] = match
 
         accepted_list = sorted(accepted.values(), key=lambda m: (-m.score, m.symptom))
         possible_list = [m for symptom, m in possible.items() if symptom not in accepted]
