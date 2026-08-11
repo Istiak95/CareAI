@@ -12,6 +12,9 @@ import base64
 import hashlib
 import secrets
 import sqlite3
+import smtplib
+import ssl
+from email.message import EmailMessage
 
 try:
     import mysql.connector
@@ -72,6 +75,35 @@ _DEFAULT_SSL_CA = certifi.where() if certifi is not None else "/etc/ssl/certs/ca
 MYSQL_SSL_CA = os.getenv("MYSQL_SSL_CA", _DEFAULT_SSL_CA).strip()
 AUTH_SECRET = os.getenv("AUTH_SECRET", "medinlp-dev-secret-change-this")
 TOKEN_TTL_SECONDS = int(os.getenv("TOKEN_TTL_SECONDS", str(60 * 60 * 24 * 14)))
+# ============================================================
+# Password Reset / Email Configuration
+# ============================================================
+
+PASSWORD_RESET_TTL_SECONDS = int(
+    os.getenv("PASSWORD_RESET_TTL_SECONDS", "1800")
+)
+
+FRONTEND_URL = os.getenv(
+    "FRONTEND_URL",
+    "http://localhost:5173"
+).rstrip("/")
+
+SMTP_HOST = os.getenv("SMTP_HOST", "").strip()
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USER = os.getenv("SMTP_USER", "").strip()
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "").strip()
+
+SMTP_FROM_EMAIL = os.getenv(
+    "SMTP_FROM_EMAIL",
+    SMTP_USER
+).strip()
+
+SMTP_USE_TLS = (
+    os.getenv("SMTP_USE_TLS", "true")
+    .strip()
+    .lower()
+    == "true"
+)
 
 TOP_K_DEFAULT = int(os.getenv("TOP_K", "3"))
 ENABLE_SHAP = os.getenv("ENABLE_SHAP", "true").lower() == "true"
@@ -419,7 +451,178 @@ def decode_auth_token(token: str) -> Dict[str, Any]:
     if int(payload.get("exp", 0)) < int(time.time()):
         raise HTTPException(status_code=401, detail="Token expired")
     return payload
+# ============================================================
+# Password Reset Token Helpers
+# ============================================================
 
+def password_hash_version(stored_hash: str) -> str:
+    """
+    Creates a fingerprint of the current stored password hash.
+    After a successful password reset, old reset links automatically
+    become invalid because the stored password hash changes.
+    """
+    return hashlib.sha256(
+        str(stored_hash).encode("utf-8")
+    ).hexdigest()
+
+
+def create_password_reset_token(user_row) -> str:
+    payload = {
+        "user_id": int(user_row["id"]),
+        "email": str(user_row["email"]),
+        "purpose": "password_reset",
+        "password_version": password_hash_version(
+            user_row["password"]
+        ),
+        "exp": int(time.time()) + PASSWORD_RESET_TTL_SECONDS,
+    }
+
+    encoded_payload = b64url_encode(
+        json.dumps(
+            payload,
+            separators=(",", ":")
+        ).encode("utf-8")
+    )
+
+    signing_input = (
+        f"password-reset:{encoded_payload}"
+    ).encode("utf-8")
+
+    signature = hmac.new(
+        AUTH_SECRET.encode("utf-8"),
+        signing_input,
+        hashlib.sha256,
+    ).hexdigest()
+
+    return f"{encoded_payload}.{signature}"
+
+
+def decode_password_reset_token(token: str) -> Dict[str, Any]:
+    try:
+        encoded_payload, signature = str(
+            token or ""
+        ).split(".", 1)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid or expired password reset link",
+        )
+
+    signing_input = (
+        f"password-reset:{encoded_payload}"
+    ).encode("utf-8")
+
+    expected_signature = hmac.new(
+        AUTH_SECRET.encode("utf-8"),
+        signing_input,
+        hashlib.sha256,
+    ).hexdigest()
+
+    if not hmac.compare_digest(
+        signature,
+        expected_signature
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid or expired password reset link",
+        )
+
+    try:
+        payload = json.loads(
+            b64url_decode(
+                encoded_payload
+            ).decode("utf-8")
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid or expired password reset link",
+        )
+
+    if payload.get("purpose") != "password_reset":
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid password reset link",
+        )
+
+    if int(payload.get("exp", 0)) < int(time.time()):
+        raise HTTPException(
+            status_code=400,
+            detail="Password reset link has expired",
+        )
+
+    return payload
+
+
+def send_password_reset_email(
+    recipient_email: str,
+    reset_token: str,
+) -> None:
+
+    if not SMTP_HOST:
+        raise RuntimeError(
+            "SMTP_HOST is not configured"
+        )
+
+    if not SMTP_FROM_EMAIL:
+        raise RuntimeError(
+            "SMTP_FROM_EMAIL is not configured"
+        )
+
+    reset_url = (
+        f"{FRONTEND_URL}/?reset_token={reset_token}"
+    )
+
+    message = EmailMessage()
+
+    message["Subject"] = "Reset your CareAI password"
+    message["From"] = SMTP_FROM_EMAIL
+    message["To"] = recipient_email
+
+    expiry_minutes = max(
+        1,
+        PASSWORD_RESET_TTL_SECONDS // 60
+    )
+
+    message.set_content(
+        f"""
+Hello,
+
+We received a request to reset your CareAI password.
+
+Open the following link to create a new password:
+
+{reset_url}
+
+This link will expire in approximately {expiry_minutes} minutes.
+
+If you did not request a password reset, you can ignore this email.
+
+CareAI
+"""
+    )
+
+    context = ssl.create_default_context()
+
+    with smtplib.SMTP(
+        SMTP_HOST,
+        SMTP_PORT,
+        timeout=20,
+    ) as server:
+
+        server.ehlo()
+
+        if SMTP_USE_TLS:
+            server.starttls(context=context)
+            server.ehlo()
+
+        if SMTP_USER and SMTP_PASSWORD:
+            server.login(
+                SMTP_USER,
+                SMTP_PASSWORD,
+            )
+
+        server.send_message(message)
 
 def get_current_user(authorization: Optional[str] = Header(default=None)) -> Dict[str, Any]:
     if not authorization or not authorization.lower().startswith("bearer "):
@@ -703,7 +906,13 @@ class LoginRequest(BaseModel):
     email: str
     password: str
 
+class ForgotPasswordRequest(BaseModel):
+    email: str
 
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    password: str
 class ChatSaveRequest(BaseModel):
     title: str = "New chat"
     messages: List[Dict[str, Any]] = []
@@ -767,7 +976,164 @@ def login_user(request: LoginRequest):
 
     user = user_to_public_dict(row)
     return {"token": create_auth_token(user), "user": user}
+@app.post("/api/auth/forgot-password")
+def forgot_password(request: ForgotPasswordRequest):
 
+    email = normalize_email(request.email)
+
+    if not re.match(
+        r"^[^@\s]+@[^@\s]+\.[^@\s]+$",
+        email,
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Valid email is required",
+        )
+
+    # Same response whether account exists or not.
+    # This prevents email/account enumeration.
+    generic_response = {
+        "message": (
+            "If an account exists for this email, "
+            "a password reset link has been sent."
+        )
+    }
+
+    with get_db_connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM users WHERE email = ?",
+            (email,),
+        ).fetchone()
+
+    if row is None:
+        return generic_response
+
+    reset_token = create_password_reset_token(row)
+
+    try:
+        send_password_reset_email(
+            email,
+            reset_token,
+        )
+
+    except Exception as exc:
+        print(
+            "Password reset email error:",
+            exc,
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Password reset email could not "
+                "be sent. Please try again later."
+            ),
+        )
+
+    return generic_response
+
+
+@app.post("/api/auth/reset-password")
+def reset_password(request: ResetPasswordRequest):
+
+    new_password = str(
+        request.password or ""
+    )
+
+    if len(new_password) < 6:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Password must be at least "
+                "6 characters"
+            ),
+        )
+
+    payload = decode_password_reset_token(
+        request.token
+    )
+
+    user_id = payload.get("user_id")
+
+    with get_db_connection() as conn:
+
+        row = conn.execute(
+            "SELECT * FROM users WHERE id = ?",
+            (user_id,),
+        ).fetchone()
+
+        if row is None:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Invalid or expired "
+                    "password reset link"
+                ),
+            )
+
+        if normalize_email(
+            row["email"]
+        ) != normalize_email(
+            payload.get("email", "")
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Invalid or expired "
+                    "password reset link"
+                ),
+            )
+
+        current_password_version = (
+            password_hash_version(
+                row["password"]
+            )
+        )
+
+        token_password_version = str(
+            payload.get(
+                "password_version",
+                "",
+            )
+        )
+
+        if not hmac.compare_digest(
+            current_password_version,
+            token_password_version,
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "This password reset link "
+                    "has already been used "
+                    "or is no longer valid."
+                ),
+            )
+
+        new_password_hash = hash_password(
+            new_password
+        )
+
+        conn.execute(
+            """
+            UPDATE users
+            SET password = ?
+            WHERE id = ?
+            """,
+            (
+                new_password_hash,
+                user_id,
+            ),
+        )
+
+        conn.commit()
+
+    return {
+        "message": (
+            "Password reset successful. "
+            "You can now log in."
+        )
+    }
 
 @app.get("/api/auth/me")
 def auth_me(current_user: Dict[str, Any] = Depends(get_current_user)):
