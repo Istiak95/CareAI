@@ -2950,3 +2950,31 @@ body {
 .reset-password-form {
   margin-top: 20px;
 }
+
+/* =========================================
+   FIX VOICE AREA SHIFT / MOVEMENT
+   ========================================= */
+
+.composer-meta {
+  min-height: 32px !important;
+}
+
+.composer-meta .voice-hint,
+.composer-meta .voice-status,
+.composer-meta .voice-error {
+  animation: none !important;
+  margin: 0 !important;
+}
+
+@media screen and (max-width: 768px) {
+  .composer .composer-meta {
+    min-height: 42px !important;
+    align-content: center;
+  }
+
+  .composer .voice-hint,
+  .composer .voice-status,
+  .composer .voice-error {
+    min-height: 16px;
+  }
+}
