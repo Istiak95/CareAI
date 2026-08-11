@@ -375,127 +375,718 @@ function MicIcon({ listening }) {
     </span>
   );
 }
+function getPasswordStrength(password) {
+  const value = String(password || "");
 
-function AuthPanel({ user,authLoading, authMode, setAuthMode, authForm, setAuthForm, authError, onSubmit, onLogout }) {
+  if (!value) {
+    return {
+      score: 0,
+      label: "",
+      percent: 0,
+    };
+  }
+
+  let score = 0;
+
+  if (value.length >= 6) score += 1;
+  if (value.length >= 8) score += 1;
+
+  if (
+    /[a-z]/.test(value) &&
+    /[A-Z]/.test(value)
+  ) {
+    score += 1;
+  }
+
+  if (/\d/.test(value)) {
+    score += 1;
+  }
+
+  if (/[^A-Za-z0-9]/.test(value)) {
+    score += 1;
+  }
+
+  const levels = [
+    "Very weak",
+    "Weak",
+    "Fair",
+    "Good",
+    "Strong",
+  ];
+
+  const normalizedScore = Math.min(
+    score,
+    4
+  );
+
+  return {
+    score: normalizedScore,
+    label: levels[normalizedScore],
+    percent: Math.max(
+      15,
+      (normalizedScore + 1) * 20
+    ),
+  };
+}
+
+
+function PasswordStrength({
+  password,
+}) {
+  const strength =
+    getPasswordStrength(password);
+
+  if (!password) {
+    return null;
+  }
+
+  return (
+    <div className="password-strength">
+      <div className="password-strength-track">
+        <div
+          className="password-strength-fill"
+          style={{
+            width: `${strength.percent}%`,
+          }}
+        />
+      </div>
+
+      <span className="password-strength-text">
+        Password strength:{" "}
+        <strong>{strength.label}</strong>
+      </span>
+    </div>
+  );
+}
+
+
+function AuthPanel({
+  user,
+  authLoading,
+  authMode,
+  setAuthMode,
+  authForm,
+  setAuthForm,
+  authError,
+  authMessage,
+  onSubmit,
+  onForgotPassword,
+  onLogout,
+}) {
+
   if (user) {
     return (
       <div className="auth-section signed-in">
+
         <div className="auth-user-row">
-          <div className="auth-avatar">{String(user.name || user.email || "U").slice(0, 1).toUpperCase()}</div>
-          <div>
-            <strong>{user.name || "MediNLP User"}</strong>
-            <span>{user.email}</span>
+
+          <div className="auth-avatar">
+            {String(
+              user.name ||
+              user.email ||
+              "U"
+            )
+              .slice(0, 1)
+              .toUpperCase()}
           </div>
+
+          <div>
+            <strong>
+              {user.name || "CareAI User"}
+            </strong>
+
+            <span>
+              {user.email}
+            </span>
+          </div>
+
         </div>
-        <button className="auth-secondary-btn" onClick={onLogout}>Logout</button>
+
+        <button
+          className="auth-secondary-btn"
+          onClick={onLogout}
+        >
+          Logout
+        </button>
+
       </div>
     );
   }
 
+
+  if (authMode === "forgot") {
+    return (
+      <div className="auth-section">
+
+        <div className="forgot-password-heading">
+          <h3>Forgot password?</h3>
+
+          <p>
+            Enter your account email and
+            we will send you a password
+            reset link.
+          </p>
+        </div>
+
+        <form
+          className="auth-form"
+          onSubmit={onForgotPassword}
+        >
+
+          <input
+            value={authForm.email}
+            onChange={(e) =>
+              setAuthForm((prev) => ({
+                ...prev,
+                email: e.target.value,
+              }))
+            }
+            placeholder="Email"
+            type="email"
+            required
+          />
+
+          {authError && (
+            <div className="auth-error">
+              {authError}
+            </div>
+          )}
+
+          {authMessage && (
+            <div className="auth-success">
+              {authMessage}
+            </div>
+          )}
+
+          <button
+            className="auth-primary-btn auth-submit-button"
+            type="submit"
+            disabled={authLoading}
+          >
+            {authLoading
+              ? "Sending..."
+              : "Send reset link"}
+          </button>
+
+          <button
+            className="auth-link-btn"
+            type="button"
+            onClick={() =>
+              setAuthMode("login")
+            }
+          >
+            ← Back to login
+          </button>
+
+        </form>
+
+      </div>
+    );
+  }
+
+
   return (
     <div className="auth-section">
+
       <div className="auth-tabs">
-        <button className={authMode === "login" ? "active" : ""} onClick={() => setAuthMode("login")}>Login</button>
-        <button className={authMode === "register" ? "active" : ""} onClick={() => setAuthMode("register")}>Register</button>
+
+        <button
+          className={
+            authMode === "login"
+              ? "active"
+              : ""
+          }
+          type="button"
+          onClick={() =>
+            setAuthMode("login")
+          }
+        >
+          Login
+        </button>
+
+        <button
+          className={
+            authMode === "register"
+              ? "active"
+              : ""
+          }
+          type="button"
+          onClick={() =>
+            setAuthMode("register")
+          }
+        >
+          Register
+        </button>
+
       </div>
 
-      <form className="auth-form" onSubmit={onSubmit}>
+
+      <form
+        className="auth-form"
+        onSubmit={onSubmit}
+      >
+
         {authMode === "register" && (
           <div className="auth-name-grid">
+
             <input
               value={authForm.first_name}
-              onChange={(e) => setAuthForm((prev) => ({ ...prev, first_name: e.target.value }))}
+              onChange={(e) =>
+                setAuthForm((prev) => ({
+                  ...prev,
+                  first_name:
+                    e.target.value,
+                }))
+              }
               placeholder="First name"
+              required
             />
+
             <input
               value={authForm.last_name}
-              onChange={(e) => setAuthForm((prev) => ({ ...prev, last_name: e.target.value }))}
+              onChange={(e) =>
+                setAuthForm((prev) => ({
+                  ...prev,
+                  last_name:
+                    e.target.value,
+                }))
+              }
               placeholder="Last name"
             />
+
           </div>
         )}
+
+
         <input
           value={authForm.email}
-          onChange={(e) => setAuthForm((prev) => ({ ...prev, email: e.target.value }))}
+          onChange={(e) =>
+            setAuthForm((prev) => ({
+              ...prev,
+              email: e.target.value,
+            }))
+          }
           placeholder="Email"
           type="email"
+          required
         />
+
+
         <input
           value={authForm.password}
-          onChange={(e) => setAuthForm((prev) => ({ ...prev, password: e.target.value }))}
+          onChange={(e) =>
+            setAuthForm((prev) => ({
+              ...prev,
+              password:
+                e.target.value,
+            }))
+          }
           placeholder="Password"
           type="password"
+          minLength={6}
+          required
         />
-        
-      {authError && <div className="auth-error">{authError}</div>}
 
-<button
-  className="auth-primary-btn auth-submit-button"
-  type="submit"
-  disabled={authLoading}
->
-  {authLoading ? (
-    <>
-      <span className="login-spinner"></span>
-      <span>
-        {authMode === "login"
-          ? "Logging in..."
-          : "Creating account..."}
-      </span>
-    </>
-  ) : (
-    <span>
-      {authMode === "login"
-        ? "Login"
-        : "Create account"}
-    </span>
-  )}
-</button>
 
-</form>
+        {authMode === "register" && (
+          <PasswordStrength
+            password={authForm.password}
+          />
+        )}
 
-      <p className="guest-copy">Guest mode is available, but chat restore/history works only after login.</p>
+
+        {authError && (
+          <div className="auth-error">
+            {authError}
+          </div>
+        )}
+
+
+        <button
+          className="auth-primary-btn auth-submit-button"
+          type="submit"
+          disabled={authLoading}
+        >
+
+          {authLoading ? (
+            <>
+              <span className="login-spinner" />
+
+              <span>
+                {authMode === "login"
+                  ? "Logging in..."
+                  : "Creating account..."}
+              </span>
+            </>
+          ) : (
+            <span>
+              {authMode === "login"
+                ? "Login"
+                : "Create account"}
+            </span>
+          )}
+
+        </button>
+
+
+        {authMode === "login" && (
+          <button
+            className="auth-link-btn forgot-password-btn"
+            type="button"
+            onClick={() =>
+              setAuthMode("forgot")
+            }
+          >
+            Forgot password?
+          </button>
+        )}
+
+      </form>
+
+      <p className="guest-copy">
+        Guest mode is available, but
+        chat restore/history works only
+        after login.
+      </p>
+
     </div>
   );
 }
 
-function AuthGate({ authMode, setAuthMode, authForm, setAuthForm, authError, authLoading, onSubmit, onGuest, darkMode, setDarkMode }) {
+
+function AuthGate({
+  authMode,
+  setAuthMode,
+  authForm,
+  setAuthForm,
+  authError,
+  authMessage,
+  authLoading,
+  onSubmit,
+  onForgotPassword,
+  onGuest,
+  darkMode,
+  setDarkMode,
+}) {
+
   return (
-    <div className={`auth-gate ${darkMode ? "dark-mode" : ""}`}>
+    <div
+      className={`auth-gate ${
+        darkMode ? "dark-mode" : ""
+      }`}
+    >
+
       <button
         className="auth-gate-theme-toggle"
-        onClick={() => setDarkMode(!darkMode)}
-        title={`Switch to ${darkMode ? "light" : "dark"} mode`}
+        onClick={() =>
+          setDarkMode(!darkMode)
+        }
+        title={`Switch to ${
+          darkMode ? "light" : "dark"
+        } mode`}
         aria-label="Toggle theme"
       >
         {darkMode ? "☀️" : "🌙"}
       </button>
+
+
       <div className="auth-gate-card">
-        <div className="auth-gate-logo">C</div>
-        <h1>Welcome to CareAI</h1>
-        <p className="auth-gate-subtitle">Login to restore previous chats, or continue as guest for a temporary session.</p>
+
+        <div className="auth-gate-logo">
+          C
+        </div>
+
+        <h1>
+          Welcome to CareAI
+        </h1>
+
+        <p className="auth-gate-subtitle">
+          Login to restore previous chats,
+          or continue as guest for a
+          temporary session.
+        </p>
+
 
         <AuthPanel
-        user={null}
-        authMode={authMode}
-        setAuthMode={setAuthMode}
-        authForm={authForm}
-        setAuthForm={setAuthForm}
-        authError={authError}
-        authLoading={authLoading}
-        onSubmit={onSubmit}
-        onLogout={() => {}}
+          user={null}
+          authMode={authMode}
+          setAuthMode={setAuthMode}
+          authForm={authForm}
+          setAuthForm={setAuthForm}
+          authError={authError}
+          authMessage={authMessage}
+          authLoading={authLoading}
+          onSubmit={onSubmit}
+          onForgotPassword={
+            onForgotPassword
+          }
+          onLogout={() => {}}
         />
-        <div className="auth-gate-divider"><span>or</span></div>
-        <button className="guest-start-btn" type="button" onClick={onGuest}>
-          Continue as Guest
-        </button>
-        <p className="auth-gate-note">Guest chats are not restored after refresh or logout.</p>
+
+
+        {authMode !== "forgot" && (
+          <>
+            <div className="auth-gate-divider">
+              <span>or</span>
+            </div>
+
+            <button
+              className="guest-start-btn"
+              type="button"
+              onClick={onGuest}
+            >
+              Continue as Guest
+            </button>
+          </>
+        )}
+
       </div>
+
     </div>
   );
 }
 
+
+function ResetPasswordView({
+  resetToken,
+  darkMode,
+  setDarkMode,
+}) {
+
+  const [password, setPassword] =
+    useState("");
+
+  const [
+    confirmPassword,
+    setConfirmPassword,
+  ] = useState("");
+
+  const [resetError, setResetError] =
+    useState("");
+
+  const [
+    resetMessage,
+    setResetMessage,
+  ] = useState("");
+
+  const [
+    resetLoading,
+    setResetLoading,
+  ] = useState(false);
+
+
+  async function handleResetPassword(
+    event
+  ) {
+
+    event.preventDefault();
+
+    if (resetLoading) {
+      return;
+    }
+
+    setResetError("");
+    setResetMessage("");
+
+    if (password.length < 6) {
+      setResetError(
+        "Password must be at least 6 characters."
+      );
+      return;
+    }
+
+    if (
+      password !== confirmPassword
+    ) {
+      setResetError(
+        "Passwords do not match."
+      );
+      return;
+    }
+
+    setResetLoading(true);
+
+    try {
+
+      const response = await fetch(
+        `${API_BASE}/api/auth/reset-password`,
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body: JSON.stringify({
+            token: resetToken,
+            password,
+          }),
+        }
+      );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.detail ||
+          "Password reset failed."
+        );
+      }
+
+      setResetMessage(
+        data.message ||
+        "Password reset successful."
+      );
+
+      setPassword("");
+      setConfirmPassword("");
+
+    } catch (error) {
+
+      setResetError(
+        error.message ||
+        "Password reset failed."
+      );
+
+    } finally {
+
+      setResetLoading(false);
+
+    }
+  }
+
+
+  function goToLogin() {
+    window.history.replaceState(
+      {},
+      "",
+      window.location.pathname
+    );
+
+    window.location.reload();
+  }
+
+
+  return (
+    <div
+      className={`auth-gate ${
+        darkMode ? "dark-mode" : ""
+      }`}
+    >
+
+      <button
+        className="auth-gate-theme-toggle"
+        onClick={() =>
+          setDarkMode(!darkMode)
+        }
+        aria-label="Toggle theme"
+      >
+        {darkMode ? "☀️" : "🌙"}
+      </button>
+
+
+      <div className="auth-gate-card">
+
+        <div className="auth-gate-logo">
+          C
+        </div>
+
+        <h1>
+          Reset Password
+        </h1>
+
+        <p className="auth-gate-subtitle">
+          Create a new password for
+          your CareAI account.
+        </p>
+
+
+        <form
+          className="auth-form reset-password-form"
+          onSubmit={
+            handleResetPassword
+          }
+        >
+
+          <input
+            type="password"
+            placeholder="New password"
+            value={password}
+            minLength={6}
+            required
+            onChange={(event) =>
+              setPassword(
+                event.target.value
+              )
+            }
+          />
+
+
+          <PasswordStrength
+            password={password}
+          />
+
+
+          <input
+            type="password"
+            placeholder="Confirm new password"
+            value={confirmPassword}
+            minLength={6}
+            required
+            onChange={(event) =>
+              setConfirmPassword(
+                event.target.value
+              )
+            }
+          />
+
+
+          {resetError && (
+            <div className="auth-error">
+              {resetError}
+            </div>
+          )}
+
+
+          {resetMessage && (
+            <div className="auth-success">
+              {resetMessage}
+            </div>
+          )}
+
+
+          {!resetMessage && (
+            <button
+              className="auth-primary-btn auth-submit-button"
+              type="submit"
+              disabled={resetLoading}
+            >
+              {resetLoading
+                ? "Updating..."
+                : "Reset password"}
+            </button>
+          )}
+
+
+          {resetMessage && (
+            <button
+              className="auth-primary-btn"
+              type="button"
+              onClick={goToLogin}
+            >
+              Back to Login
+            </button>
+          )}
+
+        </form>
+
+      </div>
+
+    </div>
+  );
+}
 function ChatHistory({ chats, currentChatId, onOpenChat, onDeleteChat, historyLoading }) {
   return (
     <div className="history-section">
@@ -540,7 +1131,13 @@ export default function App() {
   const [authMode, setAuthMode] = useState("login");
   const [authForm, setAuthForm] = useState({ first_name: "", last_name: "", email: "", password: "" });
   const [authError, setAuthError] = useState("");
+  const [authMessage, setAuthMessage] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
+
+  const resetToken =
+  new URLSearchParams(
+    window.location.search
+  ).get("reset_token") || "";
   const [chats, setChats] = useState([]);
   const [currentChatId, setCurrentChatId] = useState(null);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -550,7 +1147,10 @@ export default function App() {
   const messagesEndRef = useRef(null);
   const messageCountRef = useRef(1);
   const resultsRef = useRef(null);
-  
+  useEffect(() => {
+  setAuthError("");
+  setAuthMessage("");
+}, [authMode]);
 
   const getAuthHeaders = (tokenOverride) => {
     const token = tokenOverride || authToken;
@@ -858,6 +1458,78 @@ export default function App() {
     setAuthError(err.message || "Authentication failed");
   } finally {
     setAuthLoading(false);
+  }
+}
+  async function handleForgotPassword(
+  event
+) {
+
+  event.preventDefault();
+
+  if (authLoading) {
+    return;
+  }
+
+  setAuthError("");
+  setAuthMessage("");
+
+  const email =
+    String(authForm.email || "")
+      .trim();
+
+  if (!email) {
+    setAuthError(
+      "Please enter your email."
+    );
+    return;
+  }
+
+  setAuthLoading(true);
+
+  try {
+
+    const response = await fetch(
+      `${API_BASE}/api/auth/forgot-password`,
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+
+        body: JSON.stringify({
+          email,
+        }),
+      }
+    );
+
+    const data =
+      await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.detail ||
+        "Could not send reset link."
+      );
+    }
+
+    setAuthMessage(
+      data.message ||
+      "Password reset link sent."
+    );
+
+  } catch (error) {
+
+    setAuthError(
+      error.message ||
+      "Could not send reset link."
+    );
+
+  } finally {
+
+    setAuthLoading(false);
+
   }
 }
   function logout() {
@@ -1475,7 +2147,15 @@ async function sendMessage() {
       </div>
     );
   }
-
+  if (resetToken) {
+  return (
+    <ResetPasswordView
+      resetToken={resetToken}
+      darkMode={darkMode}
+      setDarkMode={setDarkMode}
+    />
+  );
+}
   if (authChecking) {
     return (
       <div className={`auth-gate ${darkMode ? "dark-mode" : ""}`}>
@@ -1487,17 +2167,19 @@ async function sendMessage() {
   if (!user && !authToken && !guestMode) {
     return (
       <AuthGate
-        authMode={authMode}
-        setAuthMode={setAuthMode}
-        authForm={authForm}
-        setAuthForm={setAuthForm}
-        authError={authError}
-        authLoading={authLoading}
-        onSubmit={handleAuthSubmit}
-        onGuest={() => setGuestMode(true)}
-        darkMode={darkMode}
-        setDarkMode={setDarkMode}
-      />
+  authMode={authMode}
+  setAuthMode={setAuthMode}
+  authForm={authForm}
+  setAuthForm={setAuthForm}
+  authError={authError}
+  authMessage={authMessage}
+  authLoading={authLoading}
+  onSubmit={handleAuthSubmit}
+  onForgotPassword={handleForgotPassword}
+  onGuest={() => setGuestMode(true)}
+  darkMode={darkMode}
+  setDarkMode={setDarkMode}
+/>
     );
   }
 
