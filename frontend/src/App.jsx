@@ -2439,11 +2439,7 @@ async function sendMessage() {
     </span>
   )}
 
-  {!voiceError && !isListening && (
-    <span className="voice-hint">
-      Select a language, tap the microphone and speak clearly.
-    </span>
-  )}
+ 
 </div>
         </div>
       </main>
