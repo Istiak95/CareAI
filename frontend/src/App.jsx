@@ -50,7 +50,7 @@ function createWelcomeMessage() {
   return {
     id: 0,
     role: "bot",
-    content: "Hello, I'm MediNLP 👋\n\nDescribe your symptoms in English, Banglish, or Bangla. Examples: fever and cough / amar jor ase kashi hocche / chest pain",
+    content: "Hello, I'm CareAI 👋\n\nDescribe your symptoms in English, Banglish, or Bangla. Examples: fever and cough / amar jor ase kashi hocche / chest pain",
     timestamp: getTimestamp()
   };
 }
@@ -73,7 +73,35 @@ function normalizeTranscript(text) {
 
   return value.replace(/\s+/g, " ").trim();
 }
+function getSupportedRecordingMimeType() {
+  if (!window.MediaRecorder) return "";
 
+  const supportedTypes = [
+    "audio/mp4;codecs=mp4a.40.2",
+    "audio/mp4",
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/ogg;codecs=opus",
+    "audio/ogg"
+  ];
+
+  return (
+    supportedTypes.find((type) =>
+      window.MediaRecorder.isTypeSupported(type)
+    ) || ""
+  );
+}
+
+function getAudioFileExtension(mimeType) {
+  const type = String(mimeType || "").toLowerCase();
+
+  if (type.includes("mp4")) return "mp4";
+  if (type.includes("ogg")) return "ogg";
+  if (type.includes("wav")) return "wav";
+  if (type.includes("mpeg") || type.includes("mp3")) return "mp3";
+
+  return "webm";
+}
 function pickBestTranscript(result) {
   const alternatives = Array.from({ length: result.length }, (_, index) => result[index]).filter(Boolean);
   if (!alternatives.length) return "";
@@ -308,7 +336,7 @@ function PredictionCard({ pred, isPrimary, index }) {
 function ChatBubble({ role, children, timestamp }) {
   return (
     <div className={`message-wrapper ${role}`}>
-      <div className={`avatar avatar-${role}`}>{role === "bot" ? "M" : "You"}</div>
+      <div className={`avatar avatar-${role}`}>{role === "bot" ? "C" : "You"}</div>
       <div className="bubble-container">
         <div className={`bubble ${role}`}>{children}</div>
         {timestamp && <div className="timestamp">{timestamp}</div>}
@@ -347,81 +375,437 @@ function MicIcon({ listening }) {
     </span>
   );
 }
+function getPasswordStrength(password) {
+  const value = String(password || "");
 
-function AuthPanel({ user, authMode, setAuthMode, authForm, setAuthForm, authError, onSubmit, onLogout }) {
-  if (user) {
-    return (
-      <div className="auth-section signed-in">
-        <div className="auth-user-row">
-          <div className="auth-avatar">{String(user.name || user.email || "U").slice(0, 1).toUpperCase()}</div>
-          <div>
-            <strong>{user.name || "MediNLP User"}</strong>
-            <span>{user.email}</span>
-          </div>
-        </div>
-        <button className="auth-secondary-btn" onClick={onLogout}>Logout</button>
-      </div>
-    );
+  if (!value) {
+    return {
+      score: 0,
+      label: "",
+      percent: 0,
+    };
+  }
+
+  let score = 0;
+
+  if (value.length >= 6) score += 1;
+  if (value.length >= 8) score += 1;
+
+  if (
+    /[a-z]/.test(value) &&
+    /[A-Z]/.test(value)
+  ) {
+    score += 1;
+  }
+
+  if (/\d/.test(value)) {
+    score += 1;
+  }
+
+  if (/[^A-Za-z0-9]/.test(value)) {
+    score += 1;
+  }
+
+  const levels = [
+    "Very weak",
+    "Weak",
+    "Fair",
+    "Good",
+    "Strong",
+  ];
+
+  const normalizedScore = Math.min(
+    score,
+    4
+  );
+
+  return {
+    score: normalizedScore,
+    label: levels[normalizedScore],
+    percent: Math.max(
+      15,
+      (normalizedScore + 1) * 20
+    ),
+  };
+}
+
+
+function PasswordStrength({
+  password,
+}) {
+  const strength =
+    getPasswordStrength(password);
+
+  if (!password) {
+    return null;
   }
 
   return (
-    <div className="auth-section">
-      <div className="auth-tabs">
-        <button className={authMode === "login" ? "active" : ""} onClick={() => setAuthMode("login")}>Login</button>
-        <button className={authMode === "register" ? "active" : ""} onClick={() => setAuthMode("register")}>Register</button>
+    <div className="password-strength">
+      <div className="password-strength-track">
+        <div
+          className="password-strength-fill"
+          style={{
+            width: `${strength.percent}%`,
+          }}
+        />
       </div>
 
-      <form className="auth-form" onSubmit={onSubmit}>
-        {authMode === "register" && (
-          <div className="auth-name-grid">
-            <input
-              value={authForm.first_name}
-              onChange={(e) => setAuthForm((prev) => ({ ...prev, first_name: e.target.value }))}
-              placeholder="First name"
-            />
-            <input
-              value={authForm.last_name}
-              onChange={(e) => setAuthForm((prev) => ({ ...prev, last_name: e.target.value }))}
-              placeholder="Last name"
-            />
-          </div>
-        )}
-        <input
-          value={authForm.email}
-          onChange={(e) => setAuthForm((prev) => ({ ...prev, email: e.target.value }))}
-          placeholder="Email"
-          type="email"
-        />
-        <input
-          value={authForm.password}
-          onChange={(e) => setAuthForm((prev) => ({ ...prev, password: e.target.value }))}
-          placeholder="Password"
-          type="password"
-        />
-        {authError && <div className="auth-error">{authError}</div>}
-        <button className="auth-primary-btn" type="submit">{authMode === "login" ? "Login" : "Create account"}</button>
-      </form>
-
-      <p className="guest-copy">Guest mode is available, but chat restore/history works only after login.</p>
+      <span className="password-strength-text">
+        Password strength:{" "}
+        <strong>{strength.label}</strong>
+      </span>
     </div>
   );
 }
 
-function AuthGate({ authMode, setAuthMode, authForm, setAuthForm, authError, onSubmit, onGuest, darkMode, setDarkMode }) {
+
+function AuthPanel({
+  user,
+  authLoading,
+  authMode,
+  setAuthMode,
+  authForm,
+  setAuthForm,
+  authError,
+  authMessage,
+  onSubmit,
+  onForgotPassword,
+  onLogout,
+}) {
+
+  if (user) {
+    return (
+      <div className="auth-section signed-in">
+
+        <div className="auth-user-row">
+
+          <div className="auth-avatar">
+            {String(
+              user.name ||
+              user.email ||
+              "U"
+            )
+              .slice(0, 1)
+              .toUpperCase()}
+          </div>
+
+          <div>
+            <strong>
+              {user.name || "CareAI User"}
+            </strong>
+
+            <span>
+              {user.email}
+            </span>
+          </div>
+
+        </div>
+
+        <button
+          className="auth-secondary-btn"
+          onClick={onLogout}
+        >
+          Logout
+        </button>
+
+      </div>
+    );
+  }
+
+
+  if (authMode === "forgot") {
+    return (
+      <div className="auth-section">
+
+        <div className="forgot-password-heading">
+          <h3>Forgot password?</h3>
+
+          <p>
+            Enter your account email and
+            we will send you a password
+            reset link.
+          </p>
+        </div>
+
+        <form
+          className="auth-form"
+          onSubmit={onForgotPassword}
+        >
+
+          <input
+            value={authForm.email}
+            onChange={(e) =>
+              setAuthForm((prev) => ({
+                ...prev,
+                email: e.target.value,
+              }))
+            }
+            placeholder="Email"
+            type="email"
+            required
+          />
+
+          {authError && (
+            <div className="auth-error">
+              {authError}
+            </div>
+          )}
+
+          {authMessage && (
+            <div className="auth-success">
+              {authMessage}
+            </div>
+          )}
+
+          <button
+            className="auth-primary-btn auth-submit-button"
+            type="submit"
+            disabled={authLoading}
+          >
+            {authLoading
+              ? "Sending..."
+              : "Send reset link"}
+          </button>
+
+          <button
+            className="auth-link-btn"
+            type="button"
+            onClick={() =>
+              setAuthMode("login")
+            }
+          >
+            ← Back to login
+          </button>
+
+        </form>
+
+      </div>
+    );
+  }
+
+
   return (
-    <div className={`auth-gate ${darkMode ? "dark-mode" : ""}`}>
+    <div className="auth-section">
+
+      <div className="auth-tabs">
+
+        <button
+          className={
+            authMode === "login"
+              ? "active"
+              : ""
+          }
+          type="button"
+          onClick={() =>
+            setAuthMode("login")
+          }
+        >
+          Login
+        </button>
+
+        <button
+          className={
+            authMode === "register"
+              ? "active"
+              : ""
+          }
+          type="button"
+          onClick={() =>
+            setAuthMode("register")
+          }
+        >
+          Register
+        </button>
+
+      </div>
+
+
+      <form
+        className="auth-form"
+        onSubmit={onSubmit}
+      >
+
+        {authMode === "register" && (
+          <div className="auth-name-grid">
+
+            <input
+              value={authForm.first_name}
+              onChange={(e) =>
+                setAuthForm((prev) => ({
+                  ...prev,
+                  first_name:
+                    e.target.value,
+                }))
+              }
+              placeholder="First name"
+              required
+            />
+
+            <input
+              value={authForm.last_name}
+              onChange={(e) =>
+                setAuthForm((prev) => ({
+                  ...prev,
+                  last_name:
+                    e.target.value,
+                }))
+              }
+              placeholder="Last name"
+            />
+
+          </div>
+        )}
+
+
+        <input
+          value={authForm.email}
+          onChange={(e) =>
+            setAuthForm((prev) => ({
+              ...prev,
+              email: e.target.value,
+            }))
+          }
+          placeholder="Email"
+          type="email"
+          required
+        />
+
+
+        <input
+          value={authForm.password}
+          onChange={(e) =>
+            setAuthForm((prev) => ({
+              ...prev,
+              password:
+                e.target.value,
+            }))
+          }
+          placeholder="Password"
+          type="password"
+          minLength={6}
+          required
+        />
+
+
+        {authMode === "register" && (
+          <PasswordStrength
+            password={authForm.password}
+          />
+        )}
+
+
+        {authError && (
+          <div className="auth-error">
+            {authError}
+          </div>
+        )}
+
+
+        <button
+          className="auth-primary-btn auth-submit-button"
+          type="submit"
+          disabled={authLoading}
+        >
+
+          {authLoading ? (
+            <>
+              <span className="login-spinner" />
+
+              <span>
+                {authMode === "login"
+                  ? "Logging in..."
+                  : "Creating account..."}
+              </span>
+            </>
+          ) : (
+            <span>
+              {authMode === "login"
+                ? "Login"
+                : "Create account"}
+            </span>
+          )}
+
+        </button>
+
+
+        {authMode === "login" && (
+          <button
+            className="auth-link-btn forgot-password-btn"
+            type="button"
+            onClick={() =>
+              setAuthMode("forgot")
+            }
+          >
+            Forgot password?
+          </button>
+        )}
+
+      </form>
+
+      <p className="guest-copy">
+        Guest mode is available, but
+        chat restore/history works only
+        after login.
+      </p>
+
+    </div>
+  );
+}
+
+
+function AuthGate({
+  authMode,
+  setAuthMode,
+  authForm,
+  setAuthForm,
+  authError,
+  authMessage,
+  authLoading,
+  onSubmit,
+  onForgotPassword,
+  onGuest,
+  darkMode,
+  setDarkMode,
+}) {
+
+  return (
+    <div
+      className={`auth-gate ${
+        darkMode ? "dark-mode" : ""
+      }`}
+    >
+
       <button
         className="auth-gate-theme-toggle"
-        onClick={() => setDarkMode(!darkMode)}
-        title={`Switch to ${darkMode ? "light" : "dark"} mode`}
+        onClick={() =>
+          setDarkMode(!darkMode)
+        }
+        title={`Switch to ${
+          darkMode ? "light" : "dark"
+        } mode`}
         aria-label="Toggle theme"
       >
         {darkMode ? "☀️" : "🌙"}
       </button>
+
+
       <div className="auth-gate-card">
-        <div className="auth-gate-logo">C</div>
-        <h1>Welcome to CareAI</h1>
-        <p className="auth-gate-subtitle">Login to restore previous chats, or continue as guest for a temporary session.</p>
+
+        <div className="auth-gate-logo">
+          C
+        </div>
+
+        <h1>
+          Welcome to CareAI
+        </h1>
+
+        <p className="auth-gate-subtitle">
+          Login to restore previous chats,
+          or continue as guest for a
+          temporary session.
+        </p>
+
 
         <AuthPanel
           user={null}
@@ -430,20 +814,279 @@ function AuthGate({ authMode, setAuthMode, authForm, setAuthForm, authError, onS
           authForm={authForm}
           setAuthForm={setAuthForm}
           authError={authError}
+          authMessage={authMessage}
+          authLoading={authLoading}
           onSubmit={onSubmit}
+          onForgotPassword={
+            onForgotPassword
+          }
           onLogout={() => {}}
         />
 
-        <div className="auth-gate-divider"><span>or</span></div>
-        <button className="guest-start-btn" type="button" onClick={onGuest}>
-          Continue as Guest
-        </button>
-        <p className="auth-gate-note">Guest chats are not restored after refresh or logout.</p>
+
+        {authMode !== "forgot" && (
+          <>
+            <div className="auth-gate-divider">
+              <span>or</span>
+            </div>
+
+            <button
+              className="guest-start-btn"
+              type="button"
+              onClick={onGuest}
+            >
+              Continue as Guest
+            </button>
+          </>
+        )}
+
       </div>
+
     </div>
   );
 }
 
+
+function ResetPasswordView({
+  resetToken,
+  darkMode,
+  setDarkMode,
+}) {
+
+  const [password, setPassword] =
+    useState("");
+
+  const [
+    confirmPassword,
+    setConfirmPassword,
+  ] = useState("");
+
+  const [resetError, setResetError] =
+    useState("");
+
+  const [
+    resetMessage,
+    setResetMessage,
+  ] = useState("");
+
+  const [
+    resetLoading,
+    setResetLoading,
+  ] = useState(false);
+
+
+  async function handleResetPassword(
+    event
+  ) {
+
+    event.preventDefault();
+
+    if (resetLoading) {
+      return;
+    }
+
+    setResetError("");
+    setResetMessage("");
+
+    if (password.length < 6) {
+      setResetError(
+        "Password must be at least 6 characters."
+      );
+      return;
+    }
+
+    if (
+      password !== confirmPassword
+    ) {
+      setResetError(
+        "Passwords do not match."
+      );
+      return;
+    }
+
+    setResetLoading(true);
+
+    try {
+
+      const response = await fetch(
+        `${API_BASE}/api/auth/reset-password`,
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body: JSON.stringify({
+            token: resetToken,
+            password,
+          }),
+        }
+      );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.detail ||
+          "Password reset failed."
+        );
+      }
+
+      setResetMessage(
+        data.message ||
+        "Password reset successful."
+      );
+
+      setPassword("");
+      setConfirmPassword("");
+
+    } catch (error) {
+
+      setResetError(
+        error.message ||
+        "Password reset failed."
+      );
+
+    } finally {
+
+      setResetLoading(false);
+
+    }
+  }
+
+
+  function goToLogin() {
+    window.history.replaceState(
+      {},
+      "",
+      window.location.pathname
+    );
+
+    window.location.reload();
+  }
+
+
+  return (
+    <div
+      className={`auth-gate ${
+        darkMode ? "dark-mode" : ""
+      }`}
+    >
+
+      <button
+        className="auth-gate-theme-toggle"
+        onClick={() =>
+          setDarkMode(!darkMode)
+        }
+        aria-label="Toggle theme"
+      >
+        {darkMode ? "☀️" : "🌙"}
+      </button>
+
+
+      <div className="auth-gate-card">
+
+        <div className="auth-gate-logo">
+          C
+        </div>
+
+        <h1>
+          Reset Password
+        </h1>
+
+        <p className="auth-gate-subtitle">
+          Create a new password for
+          your CareAI account.
+        </p>
+
+
+        <form
+          className="auth-form reset-password-form"
+          onSubmit={
+            handleResetPassword
+          }
+        >
+
+          <input
+            type="password"
+            placeholder="New password"
+            value={password}
+            minLength={6}
+            required
+            onChange={(event) =>
+              setPassword(
+                event.target.value
+              )
+            }
+          />
+
+
+          <PasswordStrength
+            password={password}
+          />
+
+
+          <input
+            type="password"
+            placeholder="Confirm new password"
+            value={confirmPassword}
+            minLength={6}
+            required
+            onChange={(event) =>
+              setConfirmPassword(
+                event.target.value
+              )
+            }
+          />
+
+
+          {resetError && (
+            <div className="auth-error">
+              {resetError}
+            </div>
+          )}
+
+
+          {resetMessage && (
+            <div className="auth-success">
+              {resetMessage}
+            </div>
+          )}
+
+
+          {!resetMessage && (
+            <button
+              className="auth-primary-btn auth-submit-button"
+              type="submit"
+              disabled={resetLoading}
+            >
+              {resetLoading
+                ? "Updating..."
+                : "Reset password"}
+            </button>
+          )}
+
+
+          {resetMessage && (
+            <button
+              className="auth-primary-btn"
+              type="button"
+              onClick={goToLogin}
+            >
+              Back to Login
+            </button>
+          )}
+
+        </form>
+
+      </div>
+
+    </div>
+  );
+}
 function ChatHistory({ chats, currentChatId, onOpenChat, onDeleteChat, historyLoading }) {
   return (
     <div className="history-section">
@@ -475,11 +1118,12 @@ export default function App() {
   const [pendingClarification, setPendingClarification] = useState("");
   const [loading, setLoading] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);  
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [voiceLanguage, setVoiceLanguage] = useState("en-IN");
   const [voiceError, setVoiceError] = useState("");
-  const [voiceLanguage, setVoiceLanguage] = useState("bn-BD");
 
   const [authToken, setAuthToken] = useState(() => localStorage.getItem(TOKEN_STORAGE_KEY) || "");
   const [authChecking, setAuthChecking] = useState(() => Boolean(localStorage.getItem(TOKEN_STORAGE_KEY)));
@@ -488,16 +1132,26 @@ export default function App() {
   const [authMode, setAuthMode] = useState("login");
   const [authForm, setAuthForm] = useState({ first_name: "", last_name: "", email: "", password: "" });
   const [authError, setAuthError] = useState("");
+  const [authMessage, setAuthMessage] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
+
+  const resetToken =
+  new URLSearchParams(
+    window.location.search
+  ).get("reset_token") || "";
   const [chats, setChats] = useState([]);
   const [currentChatId, setCurrentChatId] = useState(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState("");
-
+  const recognitionRef = useRef(null);
+  const voiceSeedRef = useRef("");
   const messagesEndRef = useRef(null);
   const messageCountRef = useRef(1);
   const resultsRef = useRef(null);
-  const recognitionRef = useRef(null);
-  const voiceSeedRef = useRef("");
+  useEffect(() => {
+  setAuthError("");
+  setAuthMessage("");
+}, [authMode]);
 
   const getAuthHeaders = (tokenOverride) => {
     const token = tokenOverride || authToken;
@@ -547,40 +1201,131 @@ export default function App() {
     scrollToBottom();
   }, [messages, loading]);
 
-  useEffect(() => {
-    return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!authToken) {
-      setAuthChecking(false);
-      return;
-    }
-
-    async function restoreUser() {
+ useEffect(() => {
+  return () => {
+    if (recognitionRef.current) {
       try {
-        const res = await fetch(`${API_BASE}/api/auth/me`, { headers: getAuthHeaders(authToken) });
-        if (!res.ok) throw new Error("Session expired");
-        const data = await res.json();
-        setUser(data.user);
-        setGuestMode(false);
-        await loadChatList(authToken);
-      } catch (err) {
-        localStorage.removeItem(TOKEN_STORAGE_KEY);
-        setAuthToken("");
-        setUser(null);
-      } finally {
-        setAuthChecking(false);
+        recognitionRef.current.stop();
+      } catch (error) {
+        console.error("Voice cleanup failed:", error);
       }
-    }
 
-    restoreUser();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authToken]);
+      recognitionRef.current = null;
+    }
+  };
+}, []);
+
+  useEffect(() => {
+  if (!authToken) {
+    setAuthChecking(false);
+    return;
+  }
+
+  // নতুন করে login করার সময় user আগে থেকেই set থাকলে
+  // আবার /api/auth/me request পাঠাবে না
+  if (user) {
+    setAuthChecking(false);
+    return;
+  }
+
+  let cancelled = false;
+
+  async function restoreUser() {
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/auth/me`,
+        {
+          headers: getAuthHeaders(authToken)
+        }
+      );
+
+      if (!res.ok) {
+        throw new Error("Session expired");
+      }
+
+      const data = await res.json();
+
+      if (cancelled) return;
+
+      setUser(data.user);
+      setGuestMode(false);
+      setAuthChecking(false);
+
+      // Chat history background-এ load হবে
+      void loadChatList(authToken);
+    } catch (err) {
+      if (cancelled) return;
+
+      localStorage.removeItem(TOKEN_STORAGE_KEY);
+      setAuthToken("");
+      setUser(null);
+      setAuthChecking(false);
+    }
+  }
+
+  restoreUser();
+
+  return () => {
+    cancelled = true;
+  };
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [authToken, user]);useEffect(() => {
+  if (!authToken) {
+    setAuthChecking(false);
+    return;
+  }
+
+  // নতুন করে login করার সময় user আগে থেকেই set থাকলে
+  // আবার /api/auth/me request পাঠাবে না
+  if (user) {
+    setAuthChecking(false);
+    return;
+  }
+
+  let cancelled = false;
+
+  async function restoreUser() {
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/auth/me`,
+        {
+          headers: getAuthHeaders(authToken)
+        }
+      );
+
+      if (!res.ok) {
+        throw new Error("Session expired");
+      }
+
+      const data = await res.json();
+
+      if (cancelled) return;
+
+      setUser(data.user);
+      setGuestMode(false);
+      setAuthChecking(false);
+
+      // Chat history background-এ load হবে
+      void loadChatList(authToken);
+    } catch (err) {
+      if (cancelled) return;
+
+      localStorage.removeItem(TOKEN_STORAGE_KEY);
+      setAuthToken("");
+      setUser(null);
+      setAuthChecking(false);
+    }
+  }
+
+  restoreUser();
+
+  return () => {
+    cancelled = true;
+  };
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [authToken, user]);
 
   async function loadChatList(tokenOverride) {
     const token = tokenOverride || authToken;
@@ -620,8 +1365,18 @@ export default function App() {
       const savedId = data.chat?.id || chatIdOverride;
       setCurrentChatId(savedId);
       setAutoSaveStatus("Saved");
-      await loadChatList(token);
-      return savedId;
+
+      if (data.chat) {
+      setChats((previousChats) => {
+      const remainingChats = previousChats.filter(
+      (chat) => chat.id !== data.chat.id
+      );
+
+      return [data.chat, ...remainingChats];
+    });
+   }
+
+    return savedId;
     } catch (err) {
       console.error(err);
       setAutoSaveStatus("Save failed");
@@ -644,39 +1399,140 @@ export default function App() {
   }
 
   async function handleAuthSubmit(event) {
-    event.preventDefault();
+  event.preventDefault();
+
+  if (authLoading) return;
+
+  setAuthError("");
+  setAuthLoading(true);
+
+  const endpoint =
+    authMode === "register"
+      ? "/api/auth/register"
+      : "/api/auth/login";
+
+  const payload =
+    authMode === "register"
+      ? authForm
+      : {
+          email: authForm.email,
+          password: authForm.password,
+        };
+
+  try {
+    const res = await fetch(`${API_BASE}${endpoint}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.detail || "Authentication failed");
+    }
+
+    localStorage.setItem(TOKEN_STORAGE_KEY, data.token);
+
+    setAuthToken(data.token);
+    setUser(data.user);
+    setGuestMode(false);
+    setAuthChecking(false);
+
+    setAuthForm({
+      first_name: "",
+      last_name: "",
+      email: "",
+      password: "",
+    });
+
     setAuthError("");
 
-    const endpoint = authMode === "register" ? "/api/auth/register" : "/api/auth/login";
-    const payload = authMode === "register"
-      ? authForm
-      : { email: authForm.email, password: authForm.password };
+    void loadChatList(data.token);
 
-    try {
-      const res = await fetch(`${API_BASE}${endpoint}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Authentication failed");
-
-      localStorage.setItem(TOKEN_STORAGE_KEY, data.token);
-      setAuthToken(data.token);
-      setUser(data.user);
-      setGuestMode(false);
-      setAuthForm({ first_name: "", last_name: "", email: "", password: "" });
-      setAuthError("");
-      await loadChatList(data.token);
-
-      if (messages.some((msg) => msg.role === "user")) {
-        await saveChatToServer(messages, null, "", data.token);
-      }
-    } catch (err) {
-      setAuthError(err.message || "Authentication failed");
+    if (messages.some((msg) => msg.role === "user")) {
+      void saveChatToServer(messages, null, "", data.token);
     }
+  } catch (err) {
+    setAuthError(err.message || "Authentication failed");
+  } finally {
+    setAuthLoading(false);
+  }
+}
+  async function handleForgotPassword(
+  event
+) {
+
+  event.preventDefault();
+
+  if (authLoading) {
+    return;
   }
 
+  setAuthError("");
+  setAuthMessage("");
+
+  const email =
+    String(authForm.email || "")
+      .trim();
+
+  if (!email) {
+    setAuthError(
+      "Please enter your email."
+    );
+    return;
+  }
+
+  setAuthLoading(true);
+
+  try {
+
+    const response = await fetch(
+      `${API_BASE}/api/auth/forgot-password`,
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+
+        body: JSON.stringify({
+          email,
+        }),
+      }
+    );
+
+    const data =
+      await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.detail ||
+        "Could not send reset link."
+      );
+    }
+
+    setAuthMessage(
+      data.message ||
+      "Password reset link sent."
+    );
+
+  } catch (error) {
+
+    setAuthError(
+      error.message ||
+      "Could not send reset link."
+    );
+
+  } finally {
+
+    setAuthLoading(false);
+
+  }
+}
   function logout() {
     localStorage.removeItem(TOKEN_STORAGE_KEY);
     setAuthToken("");
@@ -691,30 +1547,90 @@ export default function App() {
   }
 
   function startNewChat() {
-    setCurrentChatId(null);
-    setMessages([createWelcomeMessage()]);
+  setCurrentChatId(null);
+  setMessages([createWelcomeMessage()]);
   setPendingClarification("");
-    setInput("");
-    setShowSuggestions(false);
-    messageCountRef.current = 1;
-  }
+  setInput("");
+  setShowSuggestions(false);
+  setMobileSidebarOpen(false);
+  messageCountRef.current = 1;
+}
 
   async function openSavedChat(chatId) {
   setPendingClarification("");
-    if (!authToken) return;
-    try {
-      const res = await fetch(`${API_BASE}/api/chats/${chatId}`, { headers: getAuthHeaders() });
-      if (!res.ok) throw new Error("Could not open chat");
-      const data = await res.json();
-      const restoredMessages = data.chat?.messages?.length ? data.chat.messages : [createWelcomeMessage()];
-      setMessages(restoredMessages);
-      setCurrentChatId(data.chat.id);
-      const maxId = Math.max(0, ...restoredMessages.map((msg) => Number(msg.id) || 0));
-      messageCountRef.current = maxId + 1;
-    } catch (err) {
-      console.error(err);
-    }
+  if (!authToken) return;
+
+  // প্রথমে already-loaded chat history থেকে messages নেওয়া হবে
+  const cachedChat = chats.find(
+    (chat) => String(chat.id) === String(chatId)
+  );
+
+  if (cachedChat?.messages?.length) {
+    const restoredMessages = cachedChat.messages;
+
+    setMessages(restoredMessages);
+    setCurrentChatId(cachedChat.id);
+    setMobileSidebarOpen(false);
+
+    const maxId = Math.max(
+      0,
+      ...restoredMessages.map(
+        (msg) => Number(msg.id) || 0
+      )
+    );
+
+    messageCountRef.current = maxId + 1;
+    return;
   }
+
+  // পুরোনো data-তে messages না থাকলে শুধু fallback request
+  try {
+    const res = await fetch(
+      `${API_BASE}/api/chats/${chatId}`,
+      {
+        headers: getAuthHeaders(),
+      }
+    );
+
+    if (!res.ok) {
+      throw new Error("Could not open chat");
+    }
+
+    const data = await res.json();
+
+    const restoredMessages =
+      data.chat?.messages?.length
+        ? data.chat.messages
+        : [createWelcomeMessage()];
+
+    setMessages(restoredMessages);
+    setCurrentChatId(data.chat.id);
+    setMobileSidebarOpen(false);
+
+    // Loaded messages cache করে রাখা হবে
+    setChats((previousChats) =>
+      previousChats.map((chat) =>
+        String(chat.id) === String(chatId)
+          ? {
+              ...chat,
+              messages: restoredMessages,
+            }
+          : chat
+      )
+    );
+
+    const maxId = Math.max(
+      0,
+      ...restoredMessages.map(
+        (msg) => Number(msg.id) || 0
+      )
+    );
+
+    messageCountRef.current = maxId + 1;
+  } catch (err) {
+    console.error(err);
+  }
+}
 
   async function deleteSavedChat(chatId) {
     if (!authToken) return;
@@ -731,103 +1647,216 @@ export default function App() {
     }
   }
 
-  const startVoiceInput = () => {
-    const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+const startVoiceInput = () => {
+  const SpeechRecognitionAPI =
+    window.SpeechRecognition ||
+    window.webkitSpeechRecognition;
 
-    if (!SpeechRecognitionAPI) {
-      setVoiceError("Voice input is not supported in this browser. Please use Chrome or Edge.");
-      return;
-    }
+  if (!SpeechRecognitionAPI) {
+    setVoiceError(
+      "Voice recognition is not supported. Please use Chrome or Edge."
+    );
+    return;
+  }
 
-    if (isListening && recognitionRef.current) {
+  // Microphone আবার চাপলে listening বন্ধ হবে
+  if (isListening && recognitionRef.current) {
+    try {
       recognitionRef.current.stop();
-      setIsListening(false);
-      return;
+    } catch (error) {
+      console.error(
+        "Could not stop voice recognition:",
+        error
+      );
     }
 
-    const recognition = new SpeechRecognitionAPI();
-    recognitionRef.current = recognition;
-    voiceSeedRef.current = input.trim();
+    return;
+  }
 
-    recognition.lang = voiceLanguage;
-    recognition.interimResults = false;
-    recognition.continuous = false;
-    recognition.maxAlternatives = 5;
+  const recognition = new SpeechRecognitionAPI();
 
-    setIsListening(true);
+  recognitionRef.current = recognition;
+  voiceSeedRef.current = input.trim();
+
+  recognition.lang = voiceLanguage;
+  recognition.interimResults = false;
+  recognition.continuous = false;
+  recognition.maxAlternatives = 5;
+
+  let receivedResult = false;
+
+  recognition.onstart = () => {
     setVoiceError("");
-
-    recognition.onstart = () => {
-      setIsListening(true);
-      setVoiceError("");
-    };
-
-    recognition.onresult = (event) => {
-      const results = Array.from(event.results || []);
-      const finalResults = results.filter((result) => result.isFinal);
-      const targetResult = finalResults[finalResults.length - 1] || results[results.length - 1];
-      const transcript = targetResult ? pickBestTranscript(targetResult) : "";
-      const combined = normalizeTranscript(`${voiceSeedRef.current} ${transcript}`);
-
-      if (combined) setInput(combined);
-    };
-
-    recognition.onspeechend = () => {
-      recognition.stop();
-    };
-
-    recognition.onnomatch = () => {
-      setVoiceError("Could not clearly recognize the symptom. Please try again closer to the microphone.");
-    };
-
-    recognition.onerror = (event) => {
-      if (event.error !== "aborted") {
-        if (event.error === "no-speech") {
-          setVoiceError("Could not detect voice. Please try again.");
-        } else if (event.error === "not-allowed") {
-          setVoiceError("Microphone permission is blocked. Please allow microphone access.");
-        } else {
-          setVoiceError("Could not recognize speech. Please try again.");
-        }
-      }
-      setIsListening(false);
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-    };
-
-    recognition.start();
+    setIsListening(true);
   };
 
-  async function sendMessage() {
-    const text = input.trim();
-    if (!text || loading) return;
+  recognition.onresult = (event) => {
+    const result =
+      event.results[event.resultIndex] ||
+      event.results[event.results.length - 1];
+
+    const transcript = pickBestTranscript(result);
+
+    if (!transcript.trim()) {
+      setVoiceError(
+        "No recognizable speech was received."
+      );
+      return;
+    }
+
+    receivedResult = true;
+
+    const previousText =
+      voiceSeedRef.current.trim();
+
+    const finalText = previousText
+      ? normalizeTranscript(
+          `${previousText} ${transcript}`
+        )
+      : normalizeTranscript(transcript);
+
+    setInput(finalText);
+    setVoiceError("");
+  };
+
+  recognition.onspeechend = () => {
+    window.setTimeout(() => {
+      try {
+        recognition.stop();
+      } catch (error) {
+        console.error(
+          "Recognition stop error:",
+          error
+        );
+      }
+    }, 300);
+  };
+
+  recognition.onnomatch = () => {
+    setVoiceError(
+      "Speech could not be understood. Please speak slowly and clearly."
+    );
+  };
+
+  recognition.onerror = (event) => {
+    console.error(
+      "Speech recognition error:",
+      event.error
+    );
+
+    const errorMessages = {
+      "no-speech":
+        "No speech was detected. Tap the microphone and speak again.",
+
+      "audio-capture":
+        "The microphone could not capture audio.",
+
+      "not-allowed":
+        "Microphone permission is blocked. Please allow microphone access.",
+
+      "service-not-allowed":
+        "The browser blocked the voice recognition service.",
+
+      network:
+        "Voice recognition network error. Check your internet connection.",
+
+      "language-not-supported":
+        "The selected voice language is not supported."
+    };
+
+    if (event.error !== "aborted") {
+      setVoiceError(
+        errorMessages[event.error] ||
+          `Voice recognition failed: ${
+            event.error || "unknown error"
+          }`
+      );
+    }
+
+    setIsListening(false);
+  };
+
+  recognition.onend = () => {
+    recognitionRef.current = null;
+    setIsListening(false);
+
+    if (!receivedResult) {
+      console.log(
+        "Voice recognition ended without a transcript."
+      );
+    }
+  };
+
+  try {
+    recognition.start();
+  } catch (error) {
+    console.error(
+      "Voice recognition start error:",
+      error
+    );
+
+    recognitionRef.current = null;
+    setIsListening(false);
+
+    setVoiceError(
+      "Voice recognition could not start. Tap the microphone again."
+    );
+  }
+};
+async function sendMessage() {
+  const text = input.trim();
+
+  if (!text || loading) return;
 
   const apiMessage = pendingClarification
     ? `${pendingClarification}\nUser clarification: ${text}`
     : text;
 
-    const newUserMessage = {
-      id: messageCountRef.current++,
-      role: "user",
-      content: text,
-      timestamp: getTimestamp()
-    };
+  const newUserMessage = {
+    id: messageCountRef.current++,
+    role: "user",
+    content: text,
+    timestamp: getTimestamp(),
+  };
 
-    const messagesWithUser = [...messages, newUserMessage];
-    setMessages(messagesWithUser);
-    setInput("");
-    setShowSuggestions(false);
-    setLoading(true);
+  const messagesWithUser = [...messages, newUserMessage];
 
-    try {
-      const res = await fetch(`${API_BASE}/api/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: apiMessage, top_k: 3, enable_shap: true, shap_nsamples: 100 })
-      });
-      const data = await res.json();
+  setMessages(messagesWithUser);
+  setInput("");
+  setShowSuggestions(false);
+  setLoading(true);
+
+  /*
+   * Send করার সঙ্গে সঙ্গে chat save শুরু হবে।
+   * Prediction শেষ হওয়ার জন্য অপেক্ষা করবে না।
+   */
+  const firstSavePromise = authToken
+    ? saveChatToServer(
+        messagesWithUser,
+        currentChatId,
+        text
+      )
+    : Promise.resolve(currentChatId);
+
+  try {
+    const res = await fetch(`${API_BASE}/api/chat`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        message: apiMessage,
+        top_k: 3,
+        enable_shap: true,
+        shap_nsamples: 30,
+      }),
+    });
+
+    if (!res.ok) {
+      throw new Error("Prediction request failed");
+    }
+
+    const data = await res.json();
 
     if (data.status === "clarification_needed") {
       setPendingClarification(apiMessage);
@@ -835,32 +1864,72 @@ export default function App() {
       setPendingClarification("");
     }
 
-      const newBotMessage = {
-        id: messageCountRef.current++,
-        role: "bot",
-        type: "result",
-        data,
-        timestamp: getTimestamp()
-      };
+    const newBotMessage = {
+      id: messageCountRef.current++,
+      role: "bot",
+      type: "result",
+      data,
+      timestamp: getTimestamp(),
+    };
 
-      const finalMessages = [...messagesWithUser, newBotMessage];
-      setMessages(finalMessages);
-      const savedChatId = await saveChatToServer(finalMessages, currentChatId, text);
-      await saveReportToServer(data, savedChatId);
-    } catch (err) {
-      const errorMessage = {
-        id: messageCountRef.current++,
-        role: "bot",
-        content: "❌ Backend connection failed. Make sure FastAPI is running on http://127.0.0.1:8000",
-        timestamp: getTimestamp()
-      };
-      const finalMessages = [...messagesWithUser, errorMessage];
-      setMessages(finalMessages);
-      await saveChatToServer(finalMessages, currentChatId, text);
-    } finally {
-      setLoading(false);
-    }
+    const finalMessages = [
+      ...messagesWithUser,
+      newBotMessage,
+    ];
+
+    setMessages(finalMessages);
+
+    /*
+     * প্রথম save থেকে chat ID নেওয়া হবে।
+     * এরপর bot resultসহ একই chat update হবে।
+     */
+    void (async () => {
+      const savedChatId = await firstSavePromise;
+
+      const finalChatId = await saveChatToServer(
+        finalMessages,
+        savedChatId,
+        text
+      );
+
+      if (data.status !== "clarification_needed") {
+        await saveReportToServer(
+          data,
+          finalChatId
+        );
+      }
+    })();
+  } catch (err) {
+    console.error(err);
+
+    const errorMessage = {
+      id: messageCountRef.current++,
+      role: "bot",
+      content:
+        "❌ Backend connection failed. Please try again.",
+      timestamp: getTimestamp(),
+    };
+
+    const finalMessages = [
+      ...messagesWithUser,
+      errorMessage,
+    ];
+
+    setMessages(finalMessages);
+
+    void (async () => {
+      const savedChatId = await firstSavePromise;
+
+      await saveChatToServer(
+        finalMessages,
+        savedChatId,
+        text
+      );
+    })();
+  } finally {
+    setLoading(false);
   }
+}
 
   function renderBotResult(data) {
 
@@ -1103,11 +2172,19 @@ export default function App() {
       </div>
     );
   }
-
+  if (resetToken) {
+  return (
+    <ResetPasswordView
+      resetToken={resetToken}
+      darkMode={darkMode}
+      setDarkMode={setDarkMode}
+    />
+  );
+}
   if (authChecking) {
     return (
       <div className={`auth-gate ${darkMode ? "dark-mode" : ""}`}>
-        <div className="auth-gate-card auth-loading-card">Loading MediNLP...</div>
+        <div className="auth-gate-card auth-loading-card">Loading CareAI...</div>
       </div>
     );
   }
@@ -1115,23 +2192,60 @@ export default function App() {
   if (!user && !authToken && !guestMode) {
     return (
       <AuthGate
-        authMode={authMode}
-        setAuthMode={setAuthMode}
-        authForm={authForm}
-        setAuthForm={setAuthForm}
-        authError={authError}
-        onSubmit={handleAuthSubmit}
-        onGuest={() => setGuestMode(true)}
-        darkMode={darkMode}
-        setDarkMode={setDarkMode}
-      />
+  authMode={authMode}
+  setAuthMode={setAuthMode}
+  authForm={authForm}
+  setAuthForm={setAuthForm}
+  authError={authError}
+  authMessage={authMessage}
+  authLoading={authLoading}
+  onSubmit={handleAuthSubmit}
+  onForgotPassword={handleForgotPassword}
+  onGuest={() => setGuestMode(true)}
+  darkMode={darkMode}
+  setDarkMode={setDarkMode}
+/>
     );
   }
 
   return (
-    <div className={`app-shell ${darkMode ? "dark-mode" : ""}`}>
-      <aside className="sidebar">
-        <div className="sidebar-fixed-top">
+  <div className={`app-shell ${darkMode ? "dark-mode" : ""}`}>
+
+    {/* Mobile sidebar open button */}
+    <button
+      type="button"
+      className="mobile-menu-button"
+      onClick={() => setMobileSidebarOpen(true)}
+      aria-label="Open menu"
+      title="Open menu"
+    >
+      ☰
+    </button>
+
+    {/* Mobile sidebar background overlay */}
+    {mobileSidebarOpen && (
+      <div
+        className="sidebar-overlay"
+        onClick={() => setMobileSidebarOpen(false)}
+        aria-hidden="true"
+      />
+    )}
+
+    <aside
+      className={`sidebar ${mobileSidebarOpen ? "mobile-open" : ""}`}
+    >
+      {/* Mobile sidebar close button */}
+      <button
+        type="button"
+        className="mobile-sidebar-close"
+        onClick={() => setMobileSidebarOpen(false)}
+        aria-label="Close menu"
+        title="Close menu"
+      >
+        ×
+      </button>
+
+      <div className="sidebar-fixed-top">
           <div className="brand">
             <div className="logo">C</div>
             <div>
@@ -1244,11 +2358,13 @@ export default function App() {
               )}
             </ChatBubble>
           ))}
-          {loading && <TypingIndicator />}
+          {loading && messages[messages.length - 1]?.role === "user" && (
+            <TypingIndicator />
+            )}
           <div ref={messagesEndRef} />
         </div>
 
-        <div className="composer">
+               <div className="composer">
           <div className="input-wrapper">
             <input
               value={input}
@@ -1259,51 +2375,97 @@ export default function App() {
                   sendMessage();
                 }
               }}
-              onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+              onBlur={() =>
+                setTimeout(() => setShowSuggestions(false), 200)
+              }
               placeholder="Example: amar jor ase, kashi hocche / chest pain..."
               disabled={loading}
               aria-label="Type your symptoms"
             />
+
             {showSuggestions && suggestions.length > 0 && (
               <div className="autocomplete-dropdown">
-                {suggestions.map((s) => (
-                  <div key={s} className="suggestion-item" onClick={() => addSuggestion(s)}>
-                    {s}
+                {suggestions.map((symptom) => (
+                  <div
+                    key={symptom}
+                    className="suggestion-item"
+                    onClick={() => addSuggestion(symptom)}
+                  >
+                    {symptom}
                   </div>
                 ))}
               </div>
             )}
+
             <button
-              type="button"
-              className={`voice-icon-btn ${isListening ? "listening" : ""}`}
-              onClick={startVoiceInput}
-              disabled={loading}
-              title={isListening ? "Stop listening" : "Start voice input"}
-              aria-label="Toggle voice input"
-            >
-              <MicIcon listening={isListening} />
-            </button>
+  type="button"
+  className={`voice-icon-btn ${
+    isListening ? "listening" : ""
+  }`}
+  onClick={startVoiceInput}
+  disabled={loading}
+  title={
+    isListening
+      ? "Stop listening"
+      : "Start voice input"
+  }
+  aria-label={
+    isListening
+      ? "Stop voice input"
+      : "Start voice input"
+  }
+>
+  <MicIcon listening={isListening} />
+</button>
           </div>
 
-          <button onClick={sendMessage} disabled={loading} className={`send-btn ${loading ? "loading" : ""}`} aria-label="Send message">
+          <button
+            type="button"
+            onClick={sendMessage}
+            disabled={loading}
+            className={`send-btn ${loading ? "loading" : ""}`}
+            aria-label="Send message"
+          >
             {loading ? "⏳" : "➤"}
           </button>
 
           <div className="composer-meta">
-            <select
-              className="voice-language-select"
-              value={voiceLanguage}
-              onChange={(e) => setVoiceLanguage(e.target.value)}
-              disabled={isListening}
-              title="Voice recognition language"
-            >
-              <option value="bn-BD">Bangla / Banglish voice</option>
-              <option value="en-US">English voice</option>
-            </select>
-            {isListening && <span className="voice-status">Listening...</span>}
-            {voiceError && <span className="voice-error">{voiceError}</span>}
-            {!voiceError && !isListening && <span className="voice-hint">Speak one sentence clearly, then wait for it to appear.</span>}
-          </div>
+  <select
+    className="voice-language-select"
+    value={voiceLanguage}
+    onChange={(event) =>
+      setVoiceLanguage(event.target.value)
+    }
+    disabled={isListening}
+    title="Voice recognition language"
+  >
+    <option value="en-IN">
+      Banglish voice
+    </option>
+
+    <option value="bn-BD">
+      বাংলা voice
+    </option>
+
+    <option value="en-US">
+      English voice
+    </option>
+  </select>
+
+  {isListening && (
+    <span className="voice-status">
+      Listening...
+    </span>
+  )}
+
+  {voiceError && (
+    <span className="voice-error">
+      {voiceError}
+    </span>
+  )}
+
+ 
+</div>
         </div>
       </main>
     </div>
