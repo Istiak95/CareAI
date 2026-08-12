@@ -45,7 +45,7 @@ CONTRAST_WORDS = {"but", "kintu", "tobe", "কিন্তু", "তবে"}
 BANGLISH_TOKEN_REPLACEMENTS = {
     # common non-symptom words that often appear in Banglish input
     "amer": "amar", "amr": "amar", "amiar": "amar", "amarer": "amar",
-   "achee": "ase", "acce": "ase", "aca": "ase",
+    "ase": "ase", "achee": "ase", "acce": "ase", "aca": "ase",
     "hocce": "hocche", "hoche": "hocche", "hoitese": "hocche", "hotesa": "hocche",
     "kortase": "korche", "kortese": "korche", "korce": "korche", "korchey": "korche",
 
@@ -166,33 +166,143 @@ def generate_ngrams(text: str, max_n: int = 6) -> List[str]:
     return list(dict.fromkeys(phrases))
 
 
-def is_negated(cleaned_text: str, matched_phrase: str) -> bool:
+def is_negated(
+    cleaned_text: str,
+    matched_phrase: str,
+) -> bool:
     """
-    Simple local negation detector.
+    Local scoped negation detector.
 
-    Examples blocked:
-    - no cough
-    - cough nai
-    - fever nei
-    - ami kashi na / no fever
+    Important Banglish examples:
+
+    "jor ase kashi nai"
+        fever = present
+        cough = negated
+
+    "jor nai kashi ase"
+        fever = negated
+        cough = present
+
+    Negation must stay close to the symptom
+    that it actually describes.
     """
-    match = contains_phrase(cleaned_text, matched_phrase)
+
+    match = contains_phrase(
+        cleaned_text,
+        matched_phrase,
+    )
+
     if not match:
         return False
 
-    before_all = cleaned_text[: match.start()].split()
-    after_tokens = cleaned_text[match.end() :].split()[:3]
+    # ----------------------------------------
+    # Negation BEFORE symptom:
+    # "no cough"
+    # "not fever"
+    # ----------------------------------------
 
-    # Do not let a previous negation cross contrast words.
-    # Example: "fever nai but cough ase" => fever is negated, cough is not.
-    last_contrast_index = -1
-    for i, token in enumerate(before_all):
+    before = (
+        cleaned_text[:match.start()]
+        .split()
+    )
+
+    # Do not cross a contrast boundary.
+    for i in range(
+        len(before) - 1,
+        -1,
+        -1,
+    ):
+        if before[i] in CONTRAST_WORDS:
+            before = before[i + 1:]
+            break
+
+    if before:
+
+        # Strict nearest-token scope prevents:
+        #
+        # "jor nai kashi ase"
+        #
+        # from incorrectly negating cough.
+        if before[-1] in NEGATION_WORDS:
+            return True
+
+        # Small English/Banglish phrase support.
+        if (
+            len(before) >= 2
+            and before[-2] in NEGATION_WORDS
+            and before[-1] in {
+                "any",
+                "the",
+                "a",
+                "amar",
+            }
+        ):
+            return True
+
+    # ----------------------------------------
+    # Negation AFTER symptom:
+    #
+    # "kashi nai"
+    # "fever nei"
+    # "kashi hocche na"
+    # "fever is not"
+    # ----------------------------------------
+
+    after = (
+        cleaned_text[match.end():]
+        .split()
+    )
+
+    if not after:
+        return False
+
+    # Never cross contrast.
+    scoped = []
+
+    for token in after[:3]:
+
         if token in CONTRAST_WORDS:
-            last_contrast_index = i
-    before_tokens = before_all[last_contrast_index + 1 :][-4:]
+            break
 
-    return any(tok in NEGATION_WORDS for tok in before_tokens + after_tokens)
+        scoped.append(token)
 
+    if not scoped:
+        return False
+
+    # Direct post-negation:
+    # kashi nai
+    if scoped[0] in NEGATION_WORDS:
+        return True
+
+    # One helper word between symptom
+    # and negation:
+    #
+    # kashi hocche na
+    # fever is not
+    # kashi ekdom nai
+    helper_words = {
+        "is",
+        "are",
+        "was",
+        "were",
+        "hocche",
+        "hoche",
+        "ache",
+        "ase",
+        "ekdom",
+        "moteo",
+        "mote",
+        "absolutely",
+    }
+
+    if (
+        len(scoped) >= 2
+        and scoped[0] in helper_words
+        and scoped[1] in NEGATION_WORDS
+    ):
+        return True
+
+    return False
 
 def fuzzy_score(a: str, b: str) -> float:
     a = clean_text(a)
@@ -685,53 +795,27 @@ class SymptomNormalizer:
                 self._add_match(accepted, best_symptom, phrase, "fuzzy_matching", best_score)
             elif len(phrase) > 4 and best_symptom not in accepted:
                 self._add_match(possible, best_symptom, phrase, "fuzzy_possible", best_score, status="possible")
-        # 4) Do not use semantic/fuzzy suggestions when no
-        # reliable symptom has been accepted.
-        #
-        # This prevents meaningless text such as:
-        # "chudling pong", "abc xyz", random characters, etc.
-        # from appearing as possible medical symptoms.
+
+        # 4) SentenceTransformer semantic fallback.
+        # Use semantic matching ONLY as a fallback when exact/alias/fuzzy matching
+        # did not confidently find any symptom. This prevents semantic similarity
+        # from adding extra false red-flag symptoms to normal Bangla/Banglish inputs
+        # such as fever + cough + headache.
         if not accepted:
-            return {
-                "raw_input": message,
-                "cleaned_input": cleaned,
-                "accepted_symptoms": [],
-                "possible_symptoms": [],
-                "negated_symptoms": sorted(negated),
-                "model_input": [],
-                "semantic_enabled": self.semantic_enabled,
-                "semantic_threshold": self.semantic_threshold,
-            }
+            self._extract_by_semantic(cleaned, accepted, negated)
 
-        accepted_list = sorted(
-            accepted.values(),
-            key=lambda match: (
-                -match.score,
-                match.symptom,
-            ),
-        )
+        accepted_list = sorted(accepted.values(), key=lambda m: (-m.score, m.symptom))
+        possible_list = [m for symptom, m in possible.items() if symptom not in accepted]
+        possible_list = sorted(possible_list, key=lambda m: (-m.score, m.symptom))[:10]
 
-        accepted_symptoms = self._remove_generic_overlaps(
-            [
-                match.symptom
-                for match in accepted_list
-            ]
-        )
-
-        accepted_list = [
-            match
-            for match in accepted_list
-            if match.symptom in accepted_symptoms
-        ]
+        accepted_symptoms = self._remove_generic_overlaps([m.symptom for m in accepted_list])
+        accepted_list = [m for m in accepted_list if m.symptom in accepted_symptoms]
 
         return {
             "raw_input": message,
             "cleaned_input": cleaned,
-            "accepted_symptoms": [
-                match.to_dict()
-                for match in accepted_list
-            ],
-            "possible_symptoms": [],
+            "accepted_symptoms": [m.to_dict() for m in accepted_list],
+            "possible_symptoms": [m.to_dict() for m in possible_list],
             "negated_symptoms": sorted(negated),
             "model_input": accepted_symptoms,
             "semantic_enabled": self.semantic_enabled,

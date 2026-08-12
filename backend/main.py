@@ -41,6 +41,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from symptom_engine import SymptomNormalizer
+from gemini_symptom_engine import GeminiSymptomEngine
 
 try:
     import certifi
@@ -108,6 +109,27 @@ SMTP_USE_TLS = (
 TOP_K_DEFAULT = int(os.getenv("TOP_K", "3"))
 ENABLE_SHAP = os.getenv("ENABLE_SHAP", "true").lower() == "true"
 SHAP_NSAMPLES_DEFAULT = int(os.getenv("SHAP_NSAMPLES", "30"))
+# ============================================================
+# Gemini Symptom NLP Configuration
+# ============================================================
+
+ENABLE_GEMINI_NLP = (
+    os.getenv("ENABLE_GEMINI_NLP", "true")
+    .strip()
+    .lower()
+    == "true"
+)
+
+GEMINI_API_KEY = os.getenv(
+    "GEMINI_API_KEY",
+    "",
+).strip()
+
+GEMINI_MODEL = os.getenv(
+    "GEMINI_MODEL",
+    "gemini-3.6-flash",
+).strip()
+
 # ============================================================
 # Voice Speech-to-Text Configuration
 # ============================================================
@@ -197,6 +219,9 @@ MAJOR_RED_FLAG_THRESHOLD = 2
 shap_explainer = None
 shap_background = None
 symptom_normalizer: Optional[SymptomNormalizer] = None
+gemini_symptom_engine: Optional[
+    GeminiSymptomEngine
+] = None
 
 
 # ============================================================
@@ -708,6 +733,7 @@ def load_all_assets():
     global RED_FLAG_MESSAGES, MAJOR_RED_FLAG_THRESHOLD
     global shap_explainer, shap_background
     global symptom_normalizer
+    global gemini_symptom_engine
 
     init_database()
 
@@ -727,6 +753,27 @@ def load_all_assets():
         enable_semantic=ENABLE_SEMANTIC,
         semantic_model_name=SEMANTIC_MODEL_PATH,
     )
+
+    gemini_symptom_engine = None
+
+    if ENABLE_GEMINI_NLP and GEMINI_API_KEY:
+        try:
+            gemini_symptom_engine = GeminiSymptomEngine(
+                feature_names=feature_names,
+                api_key=GEMINI_API_KEY,
+                model=GEMINI_MODEL,
+            )
+
+            print(
+                "Gemini symptom NLP loaded:",
+                GEMINI_MODEL,
+            )
+
+        except Exception as exc:
+            print(
+                "Gemini symptom NLP disabled:",
+                exc,
+            )
     if ENABLE_SHAP and shap is not None:
         shap_background = pd.DataFrame([[0] * len(feature_names)], columns=feature_names)
         shap_explainer = shap.KernelExplainer(predict_proba_for_shap, shap_background)
@@ -735,38 +782,850 @@ def load_all_assets():
     print("Symptom normalizer aliases:", len(symptom_normalizer.alias_map))
 
 
-def extract_symptoms_from_message(message: str) -> Dict[str, Any]:
-    """Extract model-ready symptoms from natural user text."""
-    if symptom_normalizer is not None:
-        return symptom_normalizer.extract(message)
+def apply_red_flag_alias_resolver(
+    message: str,
+    symptoms: List[str],
+    negated_symptoms: List[str],
+) -> Dict[str, List[str]]:
+    """
+    Generic deterministic resolver for ALL red-flag symptoms.
 
-    # Safe fallback if startup assets are not loaded yet.
+    Uses the existing SymptomNormalizer alias map rather than
+    hardcoding one symptom such as shortness of breath.
+
+    Red-flag symptoms are only added from curated aliases /
+    exact phrases, not semantic similarity.
+    """
+
+    if symptom_normalizer is None:
+        return {
+            "symptoms": symptoms,
+            "negated_symptoms": negated_symptoms,
+            "matched_by_safety_alias": [],
+        }
+
     cleaned = clean_symptom_text(message)
-    extracted = []
-    for part in re.split(r"[,;\n]+", cleaned):
-        part = clean_symptom_text(part)
-        if part in feature_set and part not in extracted:
-            extracted.append(part)
-    for symptom in sorted(feature_names, key=len, reverse=True):
-        pattern = r"\b" + re.escape(symptom) + r"\b"
-        if re.search(pattern, cleaned) and symptom not in extracted:
-            extracted.append(symptom)
-    if "pain" in extracted:
-        specific_pain = [s for s in extracted if s != "pain" and "pain" in s.split()]
-        if specific_pain:
-            extracted.remove("pain")
-    return {
-        "raw_input": message,
-        "cleaned_input": cleaned,
-        "accepted_symptoms": [
-            {"symptom": symptom, "matched_text": symptom, "method": "fallback_exact", "score": 1.0, "status": "accepted"}
-            for symptom in extracted
-        ],
-        "possible_symptoms": [],
-        "negated_symptoms": [],
-        "model_input": extracted,
+
+    final_symptoms = list(symptoms)
+    final_negated = list(negated_symptoms)
+    safety_matches = []
+
+    red_flag_set = (
+        set(CRITICAL_RED_FLAG_SYMPTOMS)
+        | set(MAJOR_RED_FLAG_SYMPTOMS)
+    )
+
+    # Longest aliases first so specific phrases win.
+    alias_items = sorted(
+        symptom_normalizer.alias_map.items(),
+        key=lambda item: len(item[0]),
+        reverse=True,
+    )
+
+    negation_words = {
+        "no",
+        "not",
+        "without",
+        "never",
+        "nai",
+        "nei",
+        "na",
+        "নাই",
+        "নেই",
+        "না",
     }
 
+    for alias, symptom in alias_items:
+
+        if symptom not in red_flag_set:
+            continue
+
+        alias = clean_symptom_text(alias)
+
+        if not alias:
+            continue
+
+        # --------------------------------------------------
+        # Generic modifier-tolerant alias matching
+        #
+        # Examples:
+        # shash nite kosto
+        # shash nite onek kosto
+        # shash nite khub beshi kosto
+        #
+        # Works for ALL curated red-flag aliases, not only
+        # shortness of breath.
+        # --------------------------------------------------
+
+        modifier_words = {
+            "onek",
+            "khub",
+            "beshi",
+            "onekta",
+            "very",
+            "really",
+            "extremely",
+            "severely",
+            "অনেক",
+            "খুব",
+            "বেশি",
+        }
+
+        alias_tokens = alias.split()
+
+        modifier_pattern = "|".join(
+            re.escape(word)
+            for word in sorted(
+                modifier_words,
+                key=len,
+                reverse=True,
+            )
+        )
+
+        # Permit up to two controlled intensity words
+        # between words of a curated alias.
+        gap_pattern = (
+            r"\s+"
+            r"(?:(?:"
+            + modifier_pattern
+            + r")\s+){0,2}"
+        )
+
+        flexible_alias = gap_pattern.join(
+            re.escape(token)
+            for token in alias_tokens
+        )
+
+        pattern = (
+            r"(?<![A-Za-z0-9_\u0980-\u09FF])"
+            + flexible_alias
+            + r"(?![A-Za-z0-9_\u0980-\u09FF])"
+        )
+
+        match = re.search(
+            pattern,
+            cleaned,
+            flags=re.IGNORECASE,
+        )
+
+        if not match:
+            continue
+
+        before = cleaned[:match.start()].split()
+        after = cleaned[match.end():].split()
+
+        is_negated_match = False
+
+        # Negation immediately before the phrase.
+        if before and before[-1] in negation_words:
+            is_negated_match = True
+
+        # Negation immediately after the phrase.
+        if after and after[0] in negation_words:
+            is_negated_match = True
+
+        # One helper word between symptom and negation:
+        # "shash nite kosto hocche na"
+        helper_words = {
+            "hocche",
+            "hoche",
+            "ase",
+            "ache",
+            "is",
+            "are",
+            "ekdom",
+        }
+
+        if (
+            len(after) >= 2
+            and after[0] in helper_words
+            and after[1] in negation_words
+        ):
+            is_negated_match = True
+
+        if is_negated_match:
+
+            if symptom not in final_negated:
+                final_negated.append(symptom)
+
+            if symptom in final_symptoms:
+                final_symptoms.remove(symptom)
+
+            continue
+
+        if (
+            symptom not in final_symptoms
+            and symptom not in final_negated
+        ):
+            final_symptoms.append(symptom)
+
+            safety_matches.append(
+                {
+                    "symptom": symptom,
+                    "alias": alias,
+                }
+            )
+
+    return {
+        "symptoms": final_symptoms,
+        "negated_symptoms": final_negated,
+        "matched_by_safety_alias": safety_matches,
+    }
+
+
+def extract_symptoms_from_message(
+    message: str,
+) -> Dict[str, Any]:
+    """
+    Final CareAI hybrid NLP:
+
+    OLD ENGINE
+    ----------
+    exact / alias / compact / fuzzy /
+    SentenceTransformer semantic
+
+    PLUS
+
+    GEMINI
+    ------
+    Bangla/Banglish/context/intent/
+    negation/clarification
+
+    Gemini failure never disables the old engine.
+    """
+
+    # ========================================================
+    # A. OLD CAREAI ENGINE ALWAYS RUNS
+    # ========================================================
+
+    if symptom_normalizer is not None:
+        local_result = symptom_normalizer.extract(
+            message
+        )
+    else:
+        local_result = {
+            "raw_input": message,
+            "cleaned_input":
+                clean_symptom_text(message),
+            "accepted_symptoms": [],
+            "possible_symptoms": [],
+            "negated_symptoms": [],
+            "model_input": [],
+        }
+
+    # ========================================================
+    # B. GEMINI RUNS AS SECOND ENGINE
+    # ========================================================
+
+    gemini_result = None
+
+    if gemini_symptom_engine is not None:
+        gemini_result = (
+            gemini_symptom_engine.analyze(
+                message
+            )
+        )
+
+    # ========================================================
+    # C. GEMINI DOWN? OLD CAREAI CONTINUES
+    # ========================================================
+
+    if not gemini_result:
+
+        fallback = dict(local_result)
+
+        fallback.update(
+            {
+                "old_engine_used":
+                    True,
+
+                "gemini_used":
+                    False,
+
+                "hybrid_mode":
+                    "old_engine_fallback",
+
+                "intent":
+                    "symptom_input",
+
+                "intent_confidence":
+                    0.0,
+
+                "old_model_input":
+                    list(
+                        local_result.get(
+                            "model_input",
+                            [],
+                        )
+                    ),
+
+                "gemini_model_input":
+                    [],
+            }
+        )
+
+        return fallback
+
+    # ========================================================
+    # D. READ OLD ENGINE EVIDENCE
+    # ========================================================
+
+    trusted_local = []
+    semantic_local = []
+
+    local_details = list(
+        local_result.get(
+            "accepted_symptoms",
+            [],
+        )
+    )
+
+    for item in local_details:
+
+        if not isinstance(item, dict):
+            continue
+
+        symptom = clean_symptom_text(
+            item.get(
+                "symptom",
+                "",
+            )
+        )
+
+        if symptom not in feature_set:
+            continue
+
+        method = str(
+            item.get(
+                "method",
+                "",
+            )
+        ).strip()
+
+        try:
+            score = float(
+                item.get(
+                    "score",
+                    0.0,
+                )
+            )
+        except Exception:
+            score = 0.0
+
+        # Strong old-engine evidence.
+        if method in {
+            "dataset_phrase",
+            "alias_mapping",
+            "compact_alias",
+        }:
+
+            if symptom not in trusted_local:
+                trusted_local.append(
+                    symptom
+                )
+
+        elif (
+            method
+            == "fuzzy_matching"
+            and score >= 0.92
+        ):
+
+            if symptom not in trusted_local:
+                trusted_local.append(
+                    symptom
+                )
+
+        elif method == "semantic_matching":
+
+            semantic_local.append(
+                {
+                    "symptom":
+                        symptom,
+
+                    "score":
+                        score,
+                }
+            )
+
+    # ========================================================
+    # E. GEMINI INTENT
+    # ========================================================
+
+    intent = str(
+        gemini_result.get(
+            "intent",
+            "symptom_input",
+        )
+    )
+
+    try:
+        intent_confidence = float(
+            gemini_result.get(
+                "intent_confidence",
+                0.0,
+            )
+        )
+    except Exception:
+        intent_confidence = 0.0
+
+    non_symptom_intents = {
+        "explanation_request",
+        "greeting",
+        "other",
+    }
+
+    # Only suppress prediction when Gemini is highly
+    # confident AND old engine has no strong direct evidence.
+    if (
+        intent in non_symptom_intents
+        and intent_confidence >= 0.85
+        and not trusted_local
+    ):
+
+        language = gemini_result.get(
+            "language",
+            "unknown",
+        )
+
+        if intent == "explanation_request":
+
+            if language in {
+                "bangla",
+                "banglish",
+                "mixed",
+            }:
+                assistant_message = (
+                    "এটা নতুন symptom description মনে হচ্ছে না; "
+                    "তুমি আগের result বুঝতে চাচ্ছ। তাই আমি নতুন "
+                    "disease prediction চালাইনি।"
+                )
+            else:
+                assistant_message = (
+                    "This looks like a request to explain the "
+                    "previous result, not a new symptom description, "
+                    "so I did not run a new disease prediction."
+                )
+
+        elif intent == "greeting":
+
+            if language in {
+                "bangla",
+                "banglish",
+                "mixed",
+            }:
+                assistant_message = (
+                    "হ্যালো 👋 তোমার symptoms লিখো—Bangla, "
+                    "Banglish বা English যেকোনোভাবে।"
+                )
+            else:
+                assistant_message = (
+                    "Hello 👋 Describe your symptoms in English, "
+                    "Bangla, or Banglish."
+                )
+
+        else:
+
+            if language in {
+                "bangla",
+                "banglish",
+                "mixed",
+            }:
+                assistant_message = (
+                    "এই message-এ নতুন symptom description পাইনি। "
+                    "Symptom থাকলে একটু বিস্তারিত লিখো।"
+                )
+            else:
+                assistant_message = (
+                    "I did not find a new symptom description in "
+                    "that message. Please describe your symptoms."
+                )
+
+        return {
+            "raw_input":
+                message,
+
+            "cleaned_input":
+                clean_symptom_text(message),
+
+            "accepted_symptoms":
+                [],
+
+            "possible_symptoms":
+                [],
+
+            "negated_symptoms":
+                [],
+
+            "model_input":
+                [],
+
+            "language":
+                gemini_result.get(
+                    "language",
+                    "unknown",
+                ),
+
+            "intent":
+                intent,
+
+            "intent_confidence":
+                intent_confidence,
+
+            "clarification_needed":
+                False,
+
+            "follow_up_question":
+                None,
+
+            "skip_prediction":
+                True,
+
+            "assistant_message":
+                assistant_message,
+
+            "old_engine_used":
+                True,
+
+            "gemini_used":
+                True,
+
+            "hybrid_mode":
+                "intent_gate",
+
+            # Debug fields let you prove both engines ran.
+            "old_model_input":
+                list(
+                    local_result.get(
+                        "model_input",
+                        [],
+                    )
+                ),
+
+            "gemini_model_input":
+                list(
+                    gemini_result.get(
+                        "model_input",
+                        [],
+                    )
+                ),
+        }
+
+    # ========================================================
+    # F. GEMINI POSITIVE SYMPTOMS
+    # ========================================================
+
+    gemini_positive = []
+
+    for symptom in gemini_result.get(
+        "model_input",
+        [],
+    ):
+
+        symptom = clean_symptom_text(
+            symptom
+        )
+
+        if (
+            symptom in feature_set
+            and symptom not in gemini_positive
+        ):
+            gemini_positive.append(
+                symptom
+            )
+
+    # ========================================================
+    # G. FINAL HYBRID POSITIVE MERGE
+    # ========================================================
+
+    combined = []
+
+    # 1. Strong old exact/alias/fuzzy evidence survives.
+    for symptom in trusted_local:
+
+        if symptom not in combined:
+            combined.append(
+                symptom
+            )
+
+    # 2. Gemini evidence is added.
+    for symptom in gemini_positive:
+
+        if symptom not in combined:
+            combined.append(
+                symptom
+            )
+
+    # 3. Old semantic matching still works.
+    #
+    # Keep semantic result if:
+    # - Gemini independently agrees, OR
+    # - old semantic confidence is exceptionally high.
+    semantic_consensus = []
+
+    for item in semantic_local:
+
+        symptom = item["symptom"]
+        score = item["score"]
+
+        if (
+            symptom in gemini_positive
+            or score >= 0.90
+        ):
+
+            if symptom not in combined:
+                combined.append(
+                    symptom
+                )
+
+            semantic_consensus.append(
+                symptom
+            )
+
+    # ========================================================
+    # H. BANGLISH ASE / ACHE SAFETY
+    # ========================================================
+
+    message_words = set(
+        message.lower().split()
+    )
+
+    banglish_copula_words = {
+        "ase",
+        "asey",
+        "achey",
+    }
+
+    pain_markers = {
+        "pain",
+        "betha",
+        "byatha",
+        "jontrona",
+        "aching",
+        "headache",
+        "backache",
+        "toothache",
+    }
+
+    has_banglish_copula = bool(
+        message_words
+        & banglish_copula_words
+    )
+
+    has_pain_context = any(
+        marker in message.lower()
+        for marker in pain_markers
+    )
+
+    if (
+        "ache" in combined
+        and has_banglish_copula
+        and not has_pain_context
+    ):
+        combined.remove(
+            "ache"
+        )
+
+    # ========================================================
+    # I. NEGATION
+    # ========================================================
+    #
+    # Gemini is authoritative for scoped negation when it
+    # successfully analyzed the message.
+    #
+    # If Gemini fails entirely, old negation already works
+    # through the fallback return above.
+
+    negated = []
+
+    for symptom in gemini_result.get(
+        "negated_symptoms",
+        [],
+    ):
+
+        symptom = clean_symptom_text(
+            symptom
+        )
+
+        if (
+            symptom in feature_set
+            and symptom not in negated
+        ):
+            negated.append(
+                symptom
+            )
+
+    # Never feed negated symptoms to the model.
+    combined = [
+        symptom
+        for symptom in combined
+        if symptom not in negated
+    ]
+
+    # ========================================================
+    # J. ACCEPTED DETAILS / PROVENANCE
+    # ========================================================
+
+    accepted = []
+
+    existing = set()
+
+    for item in local_details:
+
+        if not isinstance(
+            item,
+            dict,
+        ):
+            continue
+
+        symptom = clean_symptom_text(
+            item.get(
+                "symptom",
+                "",
+            )
+        )
+
+        if (
+            symptom in combined
+            and symptom not in negated
+        ):
+
+            accepted.append(
+                item
+            )
+
+            existing.add(
+                symptom
+            )
+
+    for symptom in gemini_positive:
+
+        if (
+            symptom in combined
+            and symptom not in existing
+        ):
+
+            accepted.append(
+                {
+                    "symptom":
+                        symptom,
+
+                    "matched_text":
+                        message,
+
+                    "method":
+                        "gemini_semantic_nlp",
+
+                    "score":
+                        1.0,
+
+                    "status":
+                        "accepted",
+                }
+            )
+
+            existing.add(
+                symptom
+            )
+
+    # ========================================================
+    # GENERIC_RED_FLAG_ALIAS_RESOLUTION
+    safety_result = apply_red_flag_alias_resolver(
+        message,
+        combined,
+        negated,
+    )
+
+    combined = safety_result[
+        "symptoms"
+    ]
+
+    negated = safety_result[
+        "negated_symptoms"
+    ]
+
+    safety_alias_matches = safety_result[
+        "matched_by_safety_alias"
+    ]
+
+    # K. FINAL RESULT
+    # ========================================================
+
+    return {
+        "raw_input":
+            message,
+
+        "cleaned_input":
+            clean_symptom_text(
+                message
+            ),
+
+        "accepted_symptoms":
+            accepted,
+
+        "possible_symptoms":
+            local_result.get(
+                "possible_symptoms",
+                [],
+            ),
+
+        "negated_symptoms":
+            sorted(
+                negated
+            ),
+
+        "model_input":
+            combined,
+
+        "language":
+            gemini_result.get(
+                "language",
+                "unknown",
+            ),
+
+        "intent":
+            intent,
+
+        "intent_confidence":
+            intent_confidence,
+
+        "clarification_needed":
+            gemini_result.get(
+                "clarification_needed",
+                False,
+            ),
+
+        "follow_up_question":
+            gemini_result.get(
+                "follow_up_question"
+            ),
+
+        # Debug/provenance
+        "old_engine_used":
+            True,
+
+        "gemini_used":
+            True,
+
+        "hybrid_mode":
+            "old_plus_gemini",
+
+        "old_model_input":
+            list(
+                local_result.get(
+                    "model_input",
+                    [],
+                )
+            ),
+
+        "gemini_model_input":
+            gemini_positive,
+
+        "semantic_consensus":
+            semantic_consensus,
+
+        "safety_alias_matches":
+            safety_alias_matches,
+    }
 
 def create_input_vector(user_symptoms: List[str]):
     input_df = pd.DataFrame([[0] * len(feature_names)], columns=feature_names)
@@ -1314,131 +2173,150 @@ def get_symptoms(
     }
 
 
-@app.post(
-    "/api/chat",
-    response_model=ChatResponse,
-)
+@app.post("/api/chat", response_model=ChatResponse)
 def chat(request: ChatRequest):
-    extracted_symptoms: List[str] = []
-
-    extraction_details: Optional[
-        Dict[str, Any]
-    ] = None
-
-    possible_symptoms: List[
-        Dict[str, Any]
-    ] = []
-
+    extracted_symptoms = []
+    extraction_details = None
+    possible_symptoms: List[Dict[str, Any]] = []
     negated_symptoms: List[str] = []
 
-    # Direct symptom-list input
+    # Direct symptom list still works for testing/autocomplete/manual calls.
     if request.symptoms:
-        for symptom in request.symptoms:
-            cleaned_symptom = clean_symptom_text(
-                symptom
-            )
+        extracted_symptoms.extend([clean_symptom_text(s) for s in request.symptoms])
 
-            if (
-                cleaned_symptom
-                and cleaned_symptom
-                not in extracted_symptoms
-            ):
-                extracted_symptoms.append(
-                    cleaned_symptom
-                )
-
-    # English, Banglish or Bangla message
+    # Natural text goes through dataset-aware normalization first.
     if request.message:
-        extraction_details = (
-            extract_symptoms_from_message(
-                request.message
-            )
-        )
+        extraction_details = extract_symptoms_from_message(request.message)
+        possible_symptoms = extraction_details.get("possible_symptoms", [])
+        negated_symptoms = extraction_details.get("negated_symptoms", [])
 
-        possible_symptoms = (
-            extraction_details.get(
-                "possible_symptoms",
-                [],
-            )
-        )
-
-        negated_symptoms = (
-            extraction_details.get(
-                "negated_symptoms",
-                [],
-            )
-        )
-
-        for symptom in extraction_details.get(
-            "model_input",
-            [],
-        ):
+        for symptom in extraction_details.get("model_input", []):
             if symptom not in extracted_symptoms:
-                extracted_symptoms.append(
-                    symptom
-                )
+                extracted_symptoms.append(symptom)
+
+    # HYBRID_INTENT_GATE
+    if (
+        extraction_details
+        and extraction_details.get(
+            "skip_prediction",
+            False,
+        )
+    ):
+        return {
+            "status":
+                "non_symptom",
+
+            "red_flag":
+                False,
+
+            "message":
+                extraction_details.get(
+                    "assistant_message",
+                    "No new symptom description was detected.",
+                ),
+
+            "extracted_symptoms":
+                [],
+
+            "matched_symptoms":
+                [],
+
+            "unmatched_symptoms":
+                [],
+
+            "red_flag_result":
+                None,
+
+            "top_predictions":
+                [],
+
+            "possible_symptoms":
+                [],
+
+            "negated_symptoms":
+                [],
+
+            "symptom_extraction":
+                extraction_details,
+        }
+
+
+    # GEMINI_CLARIFICATION
+    if (
+        extraction_details
+        and extraction_details.get(
+            "clarification_needed",
+            False,
+        )
+        and not extracted_symptoms
+    ):
+        question = (
+            extraction_details.get(
+                "follow_up_question"
+            )
+            or (
+                "Please describe your "
+                "symptom more clearly."
+            )
+        )
+
+        return {
+            "status":
+                "clarification_needed",
+
+            "red_flag":
+                False,
+
+            "message":
+                question,
+
+            "extracted_symptoms":
+                [],
+
+            "matched_symptoms":
+                [],
+
+            "unmatched_symptoms":
+                [],
+
+            "red_flag_result":
+                None,
+
+            "top_predictions":
+                [],
+
+            "possible_symptoms":
+                possible_symptoms,
+
+            "negated_symptoms":
+                negated_symptoms,
+
+            "symptom_extraction":
+                extraction_details,
+        }
+
 
     result = predict_pipeline(
         user_symptoms=extracted_symptoms,
-
-        top_k=(
-            request.top_k
-            or TOP_K_DEFAULT
-        ),
-
-        enable_shap=(
-            request.enable_shap
-            if request.enable_shap
-            is not None
-            else ENABLE_SHAP
-        ),
-
-        shap_nsamples=(
-            request.shap_nsamples
-            or SHAP_NSAMPLES_DEFAULT
-        ),
+        top_k=request.top_k or TOP_K_DEFAULT,
+        enable_shap=request.enable_shap if request.enable_shap is not None else ENABLE_SHAP,
+        shap_nsamples=request.shap_nsamples or SHAP_NSAMPLES_DEFAULT,
     )
 
-    response_message = result["message"]
-
-    if (
-        result["status"] == "failed"
-        and possible_symptoms
-    ):
-        response_message = (
-            "No high-confidence symptom matched "
-            "the model feature list. Possible "
-            "symptoms were detected. Please "
-            "rephrase your symptoms."
-        )
+    message = result["message"]
+    if result["status"] == "failed" and possible_symptoms:
+        message = "No high-confidence symptom matched the model feature list. Possible symptoms were detected; please rephrase or use one of the suggestions."
 
     return {
         "status": result["status"],
         "red_flag": result["red_flag"],
-        "message": response_message,
-
-        "extracted_symptoms":
-            extracted_symptoms,
-
-        "matched_symptoms":
-            result["matched_symptoms"],
-
-        "unmatched_symptoms":
-            result["unmatched_symptoms"],
-
-        "red_flag_result":
-            result["red_flag_result"],
-
-        "top_predictions":
-            result["top_predictions"],
-
-        "possible_symptoms":
-            possible_symptoms,
-
-        "negated_symptoms":
-            negated_symptoms,
-
-        "symptom_extraction":
-            extraction_details,
+        "message": message,
+        "extracted_symptoms": extracted_symptoms,
+        "matched_symptoms": result["matched_symptoms"],
+        "unmatched_symptoms": result["unmatched_symptoms"],
+        "red_flag_result": result["red_flag_result"],
+        "top_predictions": result["top_predictions"],
+        "possible_symptoms": possible_symptoms,
+        "negated_symptoms": negated_symptoms,
+        "symptom_extraction": extraction_details,
     }
-

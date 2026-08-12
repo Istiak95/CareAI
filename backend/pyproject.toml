@@ -21,6 +21,7 @@ dependencies = [
     "certifi>=2024.8.30",
     "groq",
     "python-multipart",
+    "google-genai",
 ]
 
 [tool.uv.sources]
