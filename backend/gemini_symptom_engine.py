@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import json
 from typing import List, Optional, Literal
 
 from google import genai
@@ -106,6 +107,207 @@ class GeminiSymptomEngine:
                 in self.feature_names
             )
         )
+
+    def explain_previous_result(
+        self,
+        previous_result,
+        language: str,
+        user_message: str = "",
+    ):
+        """
+        Explain CareAI's PREVIOUS model result.
+
+        This never runs a new disease prediction.
+        """
+
+        if not isinstance(previous_result, dict):
+            return None
+
+        predictions = []
+
+        for pred in (
+            previous_result.get(
+                "top_predictions"
+            )
+            or []
+        )[:3]:
+
+            shap_items = (
+                (
+                    pred.get(
+                        "shap_explanation"
+                    )
+                    or {}
+                ).get(
+                    "present_symptom_contributions"
+                )
+                or []
+            )
+
+            predictions.append(
+                {
+                    "rank":
+                        pred.get("rank"),
+
+                    "disease":
+                        pred.get("disease"),
+
+                    "confidence_percent":
+                        pred.get(
+                            "confidence_percent"
+                        ),
+
+                    "shap":
+                        shap_items[:5],
+
+                    "recommendation":
+                        pred.get(
+                            "recommendation"
+                        )
+                        or {},
+                }
+            )
+
+        red_flag_result = (
+            previous_result.get(
+                "red_flag_result"
+            )
+            or {}
+        )
+
+        summary = {
+            "status":
+                previous_result.get(
+                    "status"
+                ),
+
+            "red_flag":
+                previous_result.get(
+                    "red_flag",
+                    False,
+                ),
+
+            "matched_symptoms":
+                previous_result.get(
+                    "matched_symptoms",
+                    [],
+                ),
+
+            "negated_symptoms":
+                previous_result.get(
+                    "negated_symptoms",
+                    [],
+                ),
+
+            "red_flag_result":
+                {
+                    "severity":
+                        red_flag_result.get(
+                            "severity"
+                        ),
+
+                    "reason":
+                        red_flag_result.get(
+                            "reason"
+                        ),
+
+                    "triggered_symptoms":
+                        red_flag_result.get(
+                            "triggered_symptoms",
+                            [],
+                        ),
+                },
+
+            "top_predictions":
+                predictions,
+        }
+
+        if language == "bangla":
+
+            language_instruction = """
+Write the explanation in natural, easy
+BANGLA SCRIPT.
+
+The user may have asked in Banglish,
+but your explanation MUST be in Bangla.
+
+Disease names, doctor types, test names,
+SHAP, and percentages may remain English
+when that is clearer.
+
+Do NOT reply in Banglish.
+"""
+
+        else:
+
+            language_instruction = """
+Write the explanation in clear, easy English.
+Do not switch to Bangla or Banglish.
+"""
+
+        prompt = f"""
+You are CareAI's explanation assistant.
+
+The user is asking you to explain an ALREADY
+GENERATED CareAI result.
+
+IMPORTANT RULES:
+
+- Do NOT make a new disease prediction.
+- Do NOT change any confidence score.
+- Do NOT invent symptoms.
+- Do NOT invent SHAP values.
+- Do NOT diagnose the user.
+- Do NOT prescribe medicine.
+- Explain only the supplied CareAI result.
+- Clearly say that model predictions are not
+  confirmed medical diagnoses.
+- Explain confidence in simple language.
+- If SHAP information exists, explain which
+  PRESENT symptoms influenced the model score.
+- SHAP influence is model influence, NOT proof
+  that a symptom caused a disease.
+- If this is a red-flag result, explain why the
+  safety warning appeared and preserve its urgency.
+- Keep the explanation useful and reasonably short.
+
+{language_instruction}
+
+USER'S EXPLANATION REQUEST:
+{user_message}
+
+PREVIOUS CAREAI RESULT:
+{json.dumps(summary, ensure_ascii=False)}
+"""
+
+        try:
+
+            interaction = (
+                self.client
+                .interactions
+                .create(
+                    model=self.model,
+                    input=prompt,
+                    store=False,
+                )
+            )
+
+            explanation = str(
+                interaction.output_text
+                or ""
+            ).strip()
+
+            return explanation or None
+
+        except Exception as exc:
+
+            print(
+                "Gemini explanation failed:",
+                exc,
+            )
+
+            return None
+
 
     def analyze(
         self,

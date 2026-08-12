@@ -1821,6 +1821,24 @@ async function sendMessage() {
 
   const messagesWithUser = [...messages, newUserMessage];
 
+  // Latest actual medical result in this conversation.
+  // Explanation messages themselves are ignored, so the user
+  // can ask "aro easy kore bolo" more than once.
+  const previousResultMessage = [...messages]
+    .reverse()
+    .find(
+      (msg) =>
+        msg.role === "bot" &&
+        msg.type === "result" &&
+        msg.data &&
+        ["success", "red_flag"].includes(
+          msg.data.status
+        )
+    );
+
+  const previousResult =
+    previousResultMessage?.data || null;
+
   setMessages(messagesWithUser);
   setInput("");
   setShowSuggestions(false);
@@ -1846,6 +1864,7 @@ async function sendMessage() {
       },
       body: JSON.stringify({
         message: apiMessage,
+        previous_result: previousResult,
         top_k: 3,
         enable_shap: true,
         shap_nsamples: 30,
@@ -1857,14 +1876,6 @@ async function sendMessage() {
     }
 
     const data = await res.json();
-
-    if (data.status === "non_symptom") {
-      return (
-        <div className="error-box">
-          <p>💬 {data.message}</p>
-        </div>
-      );
-    }
 
     if (data.status === "clarification_needed") {
       setPendingClarification(apiMessage);
@@ -1904,6 +1915,7 @@ async function sendMessage() {
         ![
           "clarification_needed",
           "non_symptom",
+          "explanation",
         ].includes(data.status)
       ) {
         await saveReportToServer(
@@ -1945,6 +1957,36 @@ async function sendMessage() {
 }
 
   function renderBotResult(data) {
+
+    if (data.status === "non_symptom") {
+      return (
+        <div className="text-message">
+          {String(data.message || "")
+            .split("\n")
+            .map((line, index) => (
+              <div key={index}>
+                {line}
+              </div>
+            ))}
+        </div>
+      );
+    }
+
+
+    if (data.status === "explanation") {
+      return (
+        <div className="text-message">
+          {String(data.message || "")
+            .split("\n")
+            .map((line, index) => (
+              <div key={index}>
+                {line}
+              </div>
+            ))}
+        </div>
+      );
+    }
+
 
     if (data.status === "clarification_needed") {
       return (

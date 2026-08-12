@@ -1822,6 +1822,12 @@ class ChatRequest(BaseModel):
     enable_shap: Optional[bool] = ENABLE_SHAP
     shap_nsamples: Optional[int] = SHAP_NSAMPLES_DEFAULT
 
+    # Previous CareAI result used ONLY when
+    # the user asks to explain an earlier result.
+    previous_result: Optional[
+        Dict[str, Any]
+    ] = None
+
 
 class ChatResponse(BaseModel):
     status: str
@@ -2260,12 +2266,543 @@ def get_symptoms(
     }
 
 
+
+def detect_explanation_request_language(
+    message: str,
+) -> Optional[str]:
+    """
+    Return:
+        "bangla"  -> explain in Bangla script
+        "english" -> explain in English
+        None      -> not an explicit explanation request
+
+    This does NOT depend on Gemini, so it still works
+    when Gemini quota is temporarily unavailable.
+    """
+
+    raw = str(
+        message or ""
+    ).strip()
+
+    text = (
+        raw.lower()
+        .replace("’", "'")
+    )
+
+    if not text:
+        return None
+
+    # --------------------------------------------------------
+    # Bangla-script explanation requests
+    # --------------------------------------------------------
+
+    bangla_markers = [
+        "বুঝিয়ে",
+        "বুঝাই",
+        "বুঝতে পারছি না",
+        "বুঝতে পারলাম না",
+        "বুঝলাম না",
+        "বুঝি নাই",
+        "বুঝি না",
+        "ব্যাখ্যা",
+        "সহজ করে",
+        "মানে কি",
+        "মানে কী",
+    ]
+
+    if any(
+        marker in text
+        for marker in bangla_markers
+    ):
+        return "bangla"
+
+    # --------------------------------------------------------
+    # Explicit English requests
+    # --------------------------------------------------------
+
+    english_markers = [
+        "i can't understand",
+        "i cant understand",
+        "i cannot understand",
+        "i don't understand",
+        "i dont understand",
+        "i do not understand",
+        "explain this",
+        "explain it",
+        "explain the result",
+        "explain this result",
+        "can you explain",
+        "could you explain",
+        "what does this mean",
+        "make it easier to understand",
+    ]
+
+    if any(
+        marker in text
+        for marker in english_markers
+    ):
+        return "english"
+
+    # --------------------------------------------------------
+    # Banglish requests -> response MUST be Bangla script
+    # --------------------------------------------------------
+
+    banglish_markers = [
+        "amk bujai",
+        "amake bujai",
+        "bujai dao",
+        "bujhai dao",
+        "bujhaia dao",
+        "bujay dao",
+        "bujhi nai",
+        "bujhi na",
+        "bujhlam na",
+        "bujlam na",
+        "bujte partesi na",
+        "bujhte partesi na",
+        "bujhte parchi na",
+        "easy kore bolo",
+        "sohoj kore bolo",
+        "banglay bolo",
+        "bangla te bolo",
+    ]
+
+    if any(
+        marker in text
+        for marker in banglish_markers
+    ):
+        return "bangla"
+
+    return None
+
+
+def build_local_previous_result_explanation(
+    previous_result: Dict[str, Any],
+    language: str,
+) -> str:
+    """
+    Fallback explanation when Gemini is unavailable
+    or rate-limited.
+
+    Uses only the actual previous CareAI result.
+    """
+
+    if not isinstance(
+        previous_result,
+        dict,
+    ):
+
+        if language == "bangla":
+            return (
+                "আগে একটি symptom prediction তৈরি করো। "
+                "তারপর বলো 'আমাকে বুঝিয়ে দাও'।"
+            )
+
+        return (
+            "Please generate a symptom prediction first, "
+            "then ask me to explain it."
+        )
+
+    matched = (
+        previous_result.get(
+            "matched_symptoms"
+        )
+        or []
+    )
+
+    predictions = (
+        previous_result.get(
+            "top_predictions"
+        )
+        or []
+    )
+
+    red_flag = bool(
+        previous_result.get(
+            "red_flag"
+        )
+    )
+
+    red_flag_result = (
+        previous_result.get(
+            "red_flag_result"
+        )
+        or {}
+    )
+
+    # --------------------------------------------------------
+    # RED FLAG explanation
+    # --------------------------------------------------------
+
+    if red_flag:
+
+        triggered = (
+            red_flag_result.get(
+                "triggered_symptoms"
+            )
+            or []
+        )
+
+        symptoms_text = (
+            ", ".join(triggered)
+            if triggered
+            else "serious symptoms"
+        )
+
+        if language == "bangla":
+
+            return (
+                "আগের result-এ CareAI একটি safety red flag "
+                f"detect করেছে। Trigger হওয়া symptom: "
+                f"{symptoms_text}। "
+                "এই warning কোনো diagnosis নয়; এটি serious "
+                "symptom pattern-এর কারণে safety alert। "
+                "Red-flag warning থাকলে medical evaluation "
+                "delay করা উচিত নয়।"
+            )
+
+        return (
+            "The previous CareAI result triggered a safety "
+            f"red flag because of: {symptoms_text}. "
+            "This warning is not a diagnosis; it is a safety "
+            "alert based on serious symptom patterns. "
+            "A red-flag warning should not be ignored."
+        )
+
+    # --------------------------------------------------------
+    # NORMAL PREDICTION explanation
+    # --------------------------------------------------------
+
+    if not predictions:
+
+        if language == "bangla":
+            return (
+                "আগের result-এ explain করার মতো কোনো disease "
+                "prediction পাওয়া যায়নি।"
+            )
+
+        return (
+            "The previous result does not contain a disease "
+            "prediction to explain."
+        )
+
+    top = predictions[0]
+
+    disease = str(
+        top.get(
+            "disease",
+            "Unknown condition",
+        )
+    )
+
+    confidence = top.get(
+        "confidence_percent"
+    )
+
+    if confidence is None:
+
+        try:
+            confidence = round(
+                float(
+                    top.get(
+                        "confidence",
+                        0,
+                    )
+                )
+                * 100,
+                2,
+            )
+
+        except Exception:
+            confidence = 0
+
+    shap_items = (
+        (
+            top.get(
+                "shap_explanation"
+            )
+            or {}
+        ).get(
+            "present_symptom_contributions"
+        )
+        or []
+    )
+
+    shap_items = sorted(
+        shap_items,
+        key=lambda item: abs(
+            float(
+                item.get(
+                    "contribution",
+                    0,
+                )
+            )
+        ),
+        reverse=True,
+    )[:3]
+
+    shap_names = [
+        str(
+            item.get(
+                "symptom",
+                "",
+            )
+        )
+        for item in shap_items
+        if item.get("symptom")
+    ]
+
+    other_predictions = []
+
+    for pred in predictions[1:3]:
+
+        name = pred.get(
+            "disease"
+        )
+
+        percent = pred.get(
+            "confidence_percent"
+        )
+
+        if name:
+
+            other_predictions.append(
+                f"{name}"
+                + (
+                    f" ({percent}%)"
+                    if percent is not None
+                    else ""
+                )
+            )
+
+    if language == "bangla":
+
+        parts = [
+            (
+                f"আগের result-এ model-এর #1 সম্ভাব্য condition "
+                f"ছিল {disease}, confidence {confidence}%।"
+            )
+        ]
+
+        if matched:
+
+            parts.append(
+                "Model যে present symptomগুলো analyse করেছে: "
+                + ", ".join(matched)
+                + "।"
+            )
+
+        if shap_names:
+
+            parts.append(
+                "SHAP অনুযায়ী এই prediction-এর score-এ "
+                "সবচেয়ে বেশি প্রভাব রাখা present symptomগুলোর "
+                "মধ্যে ছিল "
+                + ", ".join(shap_names)
+                + "।"
+            )
+
+        if other_predictions:
+
+            parts.append(
+                "অন্য সম্ভাব্য conditions ছিল "
+                + ", ".join(other_predictions)
+                + "।"
+            )
+
+        parts.append(
+            "এই confidence score নিশ্চিত diagnosis নয়। "
+            "SHAP শুধু model-এর decision-এ কোন symptom কতটা "
+            "প্রভাব ফেলেছে তা বুঝতে সাহায্য করে; এটি disease-এর "
+            "কারণ প্রমাণ করে না।"
+        )
+
+        return " ".join(parts)
+
+    parts = [
+        (
+            f"In the previous result, the model's #1 possible "
+            f"condition was {disease} with {confidence}% confidence."
+        )
+    ]
+
+    if matched:
+
+        parts.append(
+            "The model analysed these present symptoms: "
+            + ", ".join(matched)
+            + "."
+        )
+
+    if shap_names:
+
+        parts.append(
+            "According to SHAP, some of the present symptoms "
+            "with the strongest influence on this model score "
+            "were "
+            + ", ".join(shap_names)
+            + "."
+        )
+
+    if other_predictions:
+
+        parts.append(
+            "Other possible conditions included "
+            + ", ".join(other_predictions)
+            + "."
+        )
+
+    parts.append(
+        "The confidence score is not a confirmed diagnosis. "
+        "SHAP describes influence on the model's decision; "
+        "it does not prove that a symptom caused a disease."
+    )
+
+    return " ".join(parts)
+
+
+def build_previous_result_explanation_response(
+    previous_result: Optional[Dict[str, Any]],
+    user_message: str,
+    language: str,
+) -> Dict[str, Any]:
+
+    if not previous_result:
+
+        if language == "bangla":
+
+            explanation = (
+                "আগে তোমার symptoms দিয়ে একটি result তৈরি করো। "
+                "তারপর বলো 'আমাকে বুঝিয়ে দাও'।"
+            )
+
+        else:
+
+            explanation = (
+                "Please generate a symptom result first. "
+                "Then ask me to explain it."
+            )
+
+    else:
+
+        explanation = None
+
+        # Gemini gives a more natural explanation when available.
+        if gemini_symptom_engine is not None:
+
+            explanation = (
+                gemini_symptom_engine
+                .explain_previous_result(
+                    previous_result=
+                        previous_result,
+
+                    language=
+                        language,
+
+                    user_message=
+                        user_message,
+                )
+            )
+
+        # Gemini quota/down -> deterministic fallback.
+        if not explanation:
+
+            explanation = (
+                build_local_previous_result_explanation(
+                    previous_result,
+                    language,
+                )
+            )
+
+    return {
+        "status":
+            "explanation",
+
+        "red_flag":
+            False,
+
+        "message":
+            explanation,
+
+        "extracted_symptoms":
+            [],
+
+        "matched_symptoms":
+            [],
+
+        "unmatched_symptoms":
+            [],
+
+        "red_flag_result":
+            None,
+
+        "top_predictions":
+            [],
+
+        "possible_symptoms":
+            [],
+
+        "negated_symptoms":
+            [],
+
+        "symptom_extraction":
+            {
+                "intent":
+                    "explanation_request",
+
+                "explanation_language":
+                    language,
+
+                "skip_prediction":
+                    True,
+
+                "gemini_used":
+                    (
+                        gemini_symptom_engine
+                        is not None
+                    ),
+            },
+    }
+
+
 @app.post("/api/chat", response_model=ChatResponse)
 def chat(request: ChatRequest):
     extracted_symptoms = []
     extraction_details = None
     possible_symptoms: List[Dict[str, Any]] = []
     negated_symptoms: List[str] = []
+
+    # ========================================================
+    # PREVIOUS RESULT EXPLANATION
+    # ========================================================
+    #
+    # Known Bangla/Banglish/English explanation phrases are
+    # handled BEFORE symptom extraction.
+    #
+    # This prevents:
+    # "amk bujai dao"
+    # from accidentally becoming a new symptom prediction.
+
+    explanation_language = (
+        detect_explanation_request_language(
+            request.message or ""
+        )
+    )
+
+    if explanation_language:
+
+        return (
+            build_previous_result_explanation_response(
+                previous_result=
+                    request.previous_result,
+
+                user_message=
+                    request.message or "",
+
+                language=
+                    explanation_language,
+            )
+        )
 
     # Direct symptom list still works for testing/autocomplete/manual calls.
     if request.symptoms:
@@ -2280,6 +2817,47 @@ def chat(request: ChatRequest):
         for symptom in extraction_details.get("model_input", []):
             if symptom not in extracted_symptoms:
                 extracted_symptoms.append(symptom)
+
+    # GEMINI_EXPLANATION_REQUEST
+    if (
+        extraction_details
+        and extraction_details.get(
+            "intent"
+        )
+        == "explanation_request"
+    ):
+
+        detected_language = (
+            extraction_details.get(
+                "language",
+                "english",
+            )
+        )
+
+        language = (
+            "bangla"
+            if detected_language
+            in {
+                "bangla",
+                "banglish",
+                "mixed",
+            }
+            else "english"
+        )
+
+        return (
+            build_previous_result_explanation_response(
+                previous_result=
+                    request.previous_result,
+
+                user_message=
+                    request.message or "",
+
+                language=
+                    language,
+            )
+        )
+
 
     # HYBRID_INTENT_GATE
     if (
