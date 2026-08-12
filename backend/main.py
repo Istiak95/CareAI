@@ -1528,6 +1528,90 @@ def extract_symptoms_from_message(
             )
 
     # ========================================================
+    # ========================================================
+    # GENERIC_RED_FLAG_POSSIBLE_PROMOTION
+    # ========================================================
+    # If the OLD CareAI engine already found a red-flag
+    # symptom as a strong fuzzy possible match, promote it
+    # conservatively instead of losing it before safety check.
+    #
+    # This applies to ALL configured red-flag symptoms,
+    # not only shortness of breath.
+
+    red_flag_possible_promotions = []
+
+    red_flag_feature_set = (
+        set(CRITICAL_RED_FLAG_SYMPTOMS)
+        | set(MAJOR_RED_FLAG_SYMPTOMS)
+    )
+
+    for item in local_result.get(
+        "possible_symptoms",
+        [],
+    ):
+
+        if not isinstance(item, dict):
+            continue
+
+        symptom = clean_symptom_text(
+            item.get("symptom", "")
+        )
+
+        method = str(
+            item.get("method", "")
+        ).strip()
+
+        try:
+            score = float(
+                item.get("score", 0.0)
+            )
+        except Exception:
+            score = 0.0
+
+        matched_text = clean_symptom_text(
+            item.get("matched_text", "")
+        )
+
+        if symptom not in red_flag_feature_set:
+            continue
+
+        # Never restore a symptom already marked negated.
+        if symptom in negated:
+            continue
+
+        # Only promote fuzzy evidence here.
+        # Semantic similarity alone is not enough for
+        # a safety-critical symptom.
+        if method != "fuzzy_possible":
+            continue
+
+        token_count = len(
+            matched_text.split()
+        )
+
+        # Multi-word phrases can use a slightly lower
+        # threshold because they carry more context.
+        threshold = (
+            0.85
+            if token_count >= 2
+            else 0.93
+        )
+
+        if score < threshold:
+            continue
+
+        if symptom not in combined:
+            combined.append(symptom)
+
+        red_flag_possible_promotions.append(
+            {
+                "symptom": symptom,
+                "matched_text": matched_text,
+                "score": score,
+                "method": method,
+            }
+        )
+
     # GENERIC_RED_FLAG_ALIAS_RESOLUTION
     safety_result = apply_red_flag_alias_resolver(
         message,
@@ -1625,6 +1709,9 @@ def extract_symptoms_from_message(
 
         "safety_alias_matches":
             safety_alias_matches,
+
+        "red_flag_possible_promotions":
+            red_flag_possible_promotions,
     }
 
 def create_input_vector(user_symptoms: List[str]):
