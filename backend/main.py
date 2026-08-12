@@ -30,6 +30,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from symptom_engine import SymptomNormalizer
+from gemini_symptom_engine import GeminiSymptomEngine
 
 try:
     import certifi
@@ -68,6 +69,28 @@ TOKEN_TTL_SECONDS = int(os.getenv("TOKEN_TTL_SECONDS", str(60 * 60 * 24 * 14)))
 TOP_K_DEFAULT = int(os.getenv("TOP_K", "3"))
 ENABLE_SHAP = os.getenv("ENABLE_SHAP", "true").lower() == "true"
 SHAP_NSAMPLES_DEFAULT = int(os.getenv("SHAP_NSAMPLES", "100"))
+
+# ============================================================
+# Gemini Symptom NLP Configuration
+# ============================================================
+
+ENABLE_GEMINI_NLP = (
+    os.getenv("ENABLE_GEMINI_NLP", "true")
+    .strip()
+    .lower()
+    == "true"
+)
+
+GEMINI_API_KEY = os.getenv(
+    "GEMINI_API_KEY",
+    "",
+).strip()
+
+GEMINI_MODEL = os.getenv(
+    "GEMINI_MODEL",
+    "gemini-3.6-flash",
+).strip()
+
 ENABLE_SEMANTIC = os.getenv("ENABLE_SEMANTIC", "true").lower() == "true"
 _BUNDLED_SEMANTIC_MODEL = os.path.join(MODEL_DIR, "semantic_model")
 SEMANTIC_MODEL_PATH = os.getenv(
@@ -117,6 +140,11 @@ MAJOR_RED_FLAG_THRESHOLD = 2
 shap_explainer = None
 shap_background = None
 symptom_normalizer: Optional[SymptomNormalizer] = None
+
+gemini_symptom_engine: Optional[
+    GeminiSymptomEngine
+] = None
+
 
 
 # ============================================================
@@ -457,6 +485,7 @@ def load_all_assets():
     global RED_FLAG_MESSAGES, MAJOR_RED_FLAG_THRESHOLD
     global shap_explainer, shap_background
     global symptom_normalizer
+    global gemini_symptom_engine
 
     init_database()
 
@@ -476,6 +505,28 @@ def load_all_assets():
         enable_semantic=ENABLE_SEMANTIC,
         semantic_model_name=SEMANTIC_MODEL_PATH,
     )
+
+    gemini_symptom_engine = None
+
+    if ENABLE_GEMINI_NLP and GEMINI_API_KEY:
+        try:
+            gemini_symptom_engine = GeminiSymptomEngine(
+                feature_names=feature_names,
+                api_key=GEMINI_API_KEY,
+                model=GEMINI_MODEL,
+            )
+
+            print(
+                "Gemini symptom NLP loaded:",
+                GEMINI_MODEL,
+            )
+
+        except Exception as exc:
+            print(
+                "Gemini symptom NLP disabled:",
+                exc,
+            )
+
     if ENABLE_SHAP and shap is not None:
         shap_background = pd.DataFrame([[0] * len(feature_names)], columns=feature_names)
         shap_explainer = shap.KernelExplainer(predict_proba_for_shap, shap_background)
@@ -484,38 +535,228 @@ def load_all_assets():
     print("Symptom normalizer aliases:", len(symptom_normalizer.alias_map))
 
 
-def extract_symptoms_from_message(message: str) -> Dict[str, Any]:
-    """Extract model-ready symptoms from natural user text."""
-    if symptom_normalizer is not None:
-        return symptom_normalizer.extract(message)
+def extract_symptoms_from_message(
+    message: str,
+) -> Dict[str, Any]:
+    # GEMINI_HYBRID_EXTRACTION
 
-    # Safe fallback if startup assets are not loaded yet.
-    cleaned = clean_symptom_text(message)
-    extracted = []
-    for part in re.split(r"[,;\n]+", cleaned):
-        part = clean_symptom_text(part)
-        if part in feature_set and part not in extracted:
-            extracted.append(part)
-    for symptom in sorted(feature_names, key=len, reverse=True):
-        pattern = r"\b" + re.escape(symptom) + r"\b"
-        if re.search(pattern, cleaned) and symptom not in extracted:
-            extracted.append(symptom)
-    if "pain" in extracted:
-        specific_pain = [s for s in extracted if s != "pain" and "pain" in s.split()]
-        if specific_pain:
-            extracted.remove("pain")
-    return {
-        "raw_input": message,
-        "cleaned_input": cleaned,
-        "accepted_symptoms": [
-            {"symptom": symptom, "matched_text": symptom, "method": "fallback_exact", "score": 1.0, "status": "accepted"}
-            for symptom in extracted
-        ],
-        "possible_symptoms": [],
-        "negated_symptoms": [],
-        "model_input": extracted,
+    if symptom_normalizer is not None:
+        local_result = symptom_normalizer.extract(
+            message
+        )
+    else:
+        local_result = {
+            "raw_input": message,
+            "cleaned_input":
+                clean_symptom_text(message),
+            "accepted_symptoms": [],
+            "possible_symptoms": [],
+            "negated_symptoms": [],
+            "model_input": [],
+        }
+
+    gemini_result = None
+
+    if gemini_symptom_engine is not None:
+        gemini_result = (
+            gemini_symptom_engine.analyze(
+                message
+            )
+        )
+
+    if not gemini_result:
+        return local_result
+
+    combined = []
+
+    for symptom in (
+        list(
+            local_result.get(
+                "model_input",
+                [],
+            )
+        )
+        +
+        list(
+            gemini_result.get(
+                "model_input",
+                [],
+            )
+        )
+    ):
+
+        symptom = clean_symptom_text(
+            symptom
+        )
+
+        if (
+            symptom in feature_set
+            and symptom not in combined
+        ):
+            combined.append(symptom)
+
+    # LOCAL_BANGLISH_ASE_ACHE_GUARD
+    # Existing fuzzy normalizer may interpret Banglish
+    # "ase" = "আছে" as the English symptom "ache".
+
+    message_words = set(
+        message.lower().split()
+    )
+
+    banglish_copula_words = {
+        "ase",
+        "asey",
+        "achey",
     }
 
+    pain_markers = {
+        "pain",
+        "betha",
+        "byatha",
+        "jontrona",
+        "aching",
+        "headache",
+        "backache",
+        "toothache",
+    }
+
+    has_banglish_copula = bool(
+        message_words & banglish_copula_words
+    )
+
+    has_real_pain_context = any(
+        marker in message.lower()
+        for marker in pain_markers
+    )
+
+    if (
+        "ache" in combined
+        and has_banglish_copula
+        and not has_real_pain_context
+    ):
+        combined.remove("ache")
+
+    negated = []
+
+    for symptom in (
+        list(
+            local_result.get(
+                "negated_symptoms",
+                [],
+            )
+        )
+        +
+        list(
+            gemini_result.get(
+                "negated_symptoms",
+                [],
+            )
+        )
+    ):
+
+        symptom = clean_symptom_text(
+            symptom
+        )
+
+        if (
+            symptom in feature_set
+            and symptom not in negated
+        ):
+            negated.append(symptom)
+
+    combined = [
+        symptom
+        for symptom in combined
+        if symptom not in negated
+    ]
+
+    accepted = list(
+        local_result.get(
+            "accepted_symptoms",
+            [],
+        )
+    )
+
+    existing = {
+        clean_symptom_text(
+            item.get(
+                "symptom",
+                "",
+            )
+        )
+        for item in accepted
+        if isinstance(item, dict)
+    }
+
+    for symptom in gemini_result.get(
+        "model_input",
+        [],
+    ):
+
+        symptom = clean_symptom_text(
+            symptom
+        )
+
+        if (
+            symptom in feature_set
+            and symptom not in existing
+            and symptom not in negated
+        ):
+
+            accepted.append(
+                {
+                    "symptom": symptom,
+                    "matched_text": message,
+                    "method":
+                        "gemini_semantic_nlp",
+                    "score": 1.0,
+                    "status": "accepted",
+                }
+            )
+
+            existing.add(symptom)
+
+    return {
+        "raw_input": message,
+
+        "cleaned_input":
+            clean_symptom_text(message),
+
+        "accepted_symptoms":
+            accepted,
+
+        "possible_symptoms":
+            local_result.get(
+                "possible_symptoms",
+                [],
+            ),
+
+        "negated_symptoms":
+            sorted(negated),
+
+        "model_input":
+            combined,
+
+        "language":
+            gemini_result.get(
+                "language",
+                "unknown",
+            ),
+
+        "clarification_needed":
+            gemini_result.get(
+                "clarification_needed",
+                False,
+            ),
+
+        "follow_up_question":
+            gemini_result.get(
+                "follow_up_question"
+            ),
+
+        "gemini_used":
+            True,
+    }
 
 def create_input_vector(user_symptoms: List[str]):
     input_df = pd.DataFrame([[0] * len(feature_names)], columns=feature_names)
@@ -846,6 +1087,61 @@ def chat(request: ChatRequest):
         for symptom in extraction_details.get("model_input", []):
             if symptom not in extracted_symptoms:
                 extracted_symptoms.append(symptom)
+
+    # GEMINI_CLARIFICATION
+    if (
+        extraction_details
+        and extraction_details.get(
+            "clarification_needed",
+            False,
+        )
+        and not extracted_symptoms
+    ):
+        question = (
+            extraction_details.get(
+                "follow_up_question"
+            )
+            or (
+                "Please describe your "
+                "symptom more clearly."
+            )
+        )
+
+        return {
+            "status":
+                "clarification_needed",
+
+            "red_flag":
+                False,
+
+            "message":
+                question,
+
+            "extracted_symptoms":
+                [],
+
+            "matched_symptoms":
+                [],
+
+            "unmatched_symptoms":
+                [],
+
+            "red_flag_result":
+                None,
+
+            "top_predictions":
+                [],
+
+            "possible_symptoms":
+                possible_symptoms,
+
+            "negated_symptoms":
+                negated_symptoms,
+
+            "symptom_extraction":
+                extraction_details,
+        }
+
 
     result = predict_pipeline(
         user_symptoms=extracted_symptoms,

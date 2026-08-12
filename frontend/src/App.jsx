@@ -472,6 +472,7 @@ function ChatHistory({ chats, currentChatId, onOpenChat, onDeleteChat, historyLo
 export default function App() {
   const [messages, setMessages] = useState([createWelcomeMessage()]);
   const [input, setInput] = useState("");
+  const [pendingClarification, setPendingClarification] = useState("");
   const [loading, setLoading] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
@@ -684,6 +685,7 @@ export default function App() {
     setChats([]);
     setCurrentChatId(null);
     setAutoSaveStatus("");
+    setPendingClarification("");
     setMessages([createWelcomeMessage()]);
     messageCountRef.current = 1;
   }
@@ -691,12 +693,14 @@ export default function App() {
   function startNewChat() {
     setCurrentChatId(null);
     setMessages([createWelcomeMessage()]);
+  setPendingClarification("");
     setInput("");
     setShowSuggestions(false);
     messageCountRef.current = 1;
   }
 
   async function openSavedChat(chatId) {
+  setPendingClarification("");
     if (!authToken) return;
     try {
       const res = await fetch(`${API_BASE}/api/chats/${chatId}`, { headers: getAuthHeaders() });
@@ -800,6 +804,10 @@ export default function App() {
     const text = input.trim();
     if (!text || loading) return;
 
+  const apiMessage = pendingClarification
+    ? `${pendingClarification}\nUser clarification: ${text}`
+    : text;
+
     const newUserMessage = {
       id: messageCountRef.current++,
       role: "user",
@@ -817,9 +825,15 @@ export default function App() {
       const res = await fetch(`${API_BASE}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, top_k: 3, enable_shap: true, shap_nsamples: 100 })
+        body: JSON.stringify({ message: apiMessage, top_k: 3, enable_shap: true, shap_nsamples: 100 })
       });
       const data = await res.json();
+
+    if (data.status === "clarification_needed") {
+      setPendingClarification(apiMessage);
+    } else {
+      setPendingClarification("");
+    }
 
       const newBotMessage = {
         id: messageCountRef.current++,
@@ -849,6 +863,15 @@ export default function App() {
   }
 
   function renderBotResult(data) {
+
+    if (data.status === "clarification_needed") {
+      return (
+        <div className="error-box">
+          <p>💬 {data.message}</p>
+        </div>
+      );
+    }
+
     if (data.status === "failed") {
       return (
         <div className="error-box">
