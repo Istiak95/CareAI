@@ -636,22 +636,23 @@ def extract_symptoms_from_message(
     ):
         combined.remove("ache")
 
+    # ==================================================
+    # GEMINI-AUTHORITATIVE NEGATION
+    # ==================================================
+    #
+    # If Gemini successfully analyzed the message,
+    # use Gemini's scoped negation result.
+    #
+    # The local normalizer remains available as
+    # fallback when Gemini is unavailable, because
+    # this function already returns local_result
+    # above when gemini_result is missing.
+
     negated = []
 
-    for symptom in (
-        list(
-            local_result.get(
-                "negated_symptoms",
-                [],
-            )
-        )
-        +
-        list(
-            gemini_result.get(
-                "negated_symptoms",
-                [],
-            )
-        )
+    for symptom in gemini_result.get(
+        "negated_symptoms",
+        [],
     ):
 
         symptom = clean_symptom_text(
@@ -662,7 +663,9 @@ def extract_symptoms_from_message(
             symptom in feature_set
             and symptom not in negated
         ):
-            negated.append(symptom)
+            negated.append(
+                symptom
+            )
 
     combined = [
         symptom

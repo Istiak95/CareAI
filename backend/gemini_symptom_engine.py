@@ -155,14 +155,51 @@ NEGATION:
 Understand negation in English, Bangla,
 and Banglish.
 
-Example:
+Negation scope is VERY IMPORTANT.
 
-"amar jor nai but kashi ase"
+"nai", "nei", "na", "no", and "not"
+must apply only to the symptom phrase
+they actually describe.
 
-If the allowed list contains fever and cough:
+Example 1:
+
+"jor ase kashi nai"
+
+fever = present symptom
+cough = negated symptom
+
+Therefore:
+
+canonical_symptoms = ["fever"]
+negated_symptoms = ["cough"]
+
+Example 2:
+
+"jor nai kashi ase"
 
 fever = negated symptom
 cough = present symptom
+
+Therefore:
+
+canonical_symptoms = ["cough"]
+negated_symptoms = ["fever"]
+
+Example 3:
+
+"amar jor nai but kashi ase"
+
+fever = negated symptom
+cough = present symptom
+
+Never negate an earlier symptom only because
+a later symptom is followed by "nai", "nei",
+or "na".
+
+Also remember that Banglish "ase" usually
+means the Bangla verb "আছে" (is/has).
+Do NOT interpret "ase" as the English
+symptom "ache".
 
 A negated symptom MUST NOT be placed inside
 canonical_symptoms.
