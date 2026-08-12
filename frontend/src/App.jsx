@@ -1115,6 +1115,7 @@ function ChatHistory({ chats, currentChatId, onOpenChat, onDeleteChat, historyLo
 export default function App() {
   const [messages, setMessages] = useState([createWelcomeMessage()]);
   const [input, setInput] = useState("");
+  const [pendingClarification, setPendingClarification] = useState("");
   const [loading, setLoading] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);  
@@ -1540,6 +1541,7 @@ export default function App() {
     setChats([]);
     setCurrentChatId(null);
     setAutoSaveStatus("");
+    setPendingClarification("");
     setMessages([createWelcomeMessage()]);
     messageCountRef.current = 1;
   }
@@ -1547,6 +1549,7 @@ export default function App() {
   function startNewChat() {
   setCurrentChatId(null);
   setMessages([createWelcomeMessage()]);
+  setPendingClarification("");
   setInput("");
   setShowSuggestions(false);
   setMobileSidebarOpen(false);
@@ -1554,6 +1557,7 @@ export default function App() {
 }
 
   async function openSavedChat(chatId) {
+  setPendingClarification("");
   if (!authToken) return;
 
   // প্রথমে already-loaded chat history থেকে messages নেওয়া হবে
@@ -1804,6 +1808,10 @@ async function sendMessage() {
 
   if (!text || loading) return;
 
+  const apiMessage = pendingClarification
+    ? `${pendingClarification}\nUser clarification: ${text}`
+    : text;
+
   const newUserMessage = {
     id: messageCountRef.current++,
     role: "user",
@@ -1837,7 +1845,7 @@ async function sendMessage() {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        message: text,
+        message: apiMessage,
         top_k: 3,
         enable_shap: true,
         shap_nsamples: 30,
@@ -1849,6 +1857,20 @@ async function sendMessage() {
     }
 
     const data = await res.json();
+
+    if (data.status === "non_symptom") {
+      return (
+        <div className="error-box">
+          <p>💬 {data.message}</p>
+        </div>
+      );
+    }
+
+    if (data.status === "clarification_needed") {
+      setPendingClarification(apiMessage);
+    } else {
+      setPendingClarification("");
+    }
 
     const newBotMessage = {
       id: messageCountRef.current++,
@@ -1878,10 +1900,17 @@ async function sendMessage() {
         text
       );
 
-      await saveReportToServer(
-        data,
-        finalChatId
-      );
+      if (
+        ![
+          "clarification_needed",
+          "non_symptom",
+        ].includes(data.status)
+      ) {
+        await saveReportToServer(
+          data,
+          finalChatId
+        );
+      }
     })();
   } catch (err) {
     console.error(err);
@@ -1916,6 +1945,15 @@ async function sendMessage() {
 }
 
   function renderBotResult(data) {
+
+    if (data.status === "clarification_needed") {
+      return (
+        <div className="error-box">
+          <p>💬 {data.message}</p>
+        </div>
+      );
+    }
+
     if (data.status === "failed") {
       return (
         <div className="error-box">
