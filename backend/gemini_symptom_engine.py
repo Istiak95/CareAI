@@ -17,6 +17,21 @@ class GeminiSymptomResult(BaseModel):
         "unknown",
     ] = "unknown"
 
+    # What kind of message did the user send?
+    intent: Literal[
+        "symptom_input",
+        "symptom_followup",
+        "explanation_request",
+        "greeting",
+        "other",
+    ] = "symptom_input"
+
+    intent_confidence: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+    )
+
     canonical_symptoms: List[str] = Field(
         default_factory=list
     )
@@ -149,6 +164,60 @@ TASKS:
 
 7. Every canonical symptom MUST exactly match
    one of the allowed symptom names.
+
+INTENT CLASSIFICATION:
+
+Before extracting symptoms, classify what
+the user is actually trying to do.
+
+Use exactly one intent:
+
+symptom_input
+= the user is describing one or more
+  current symptoms.
+
+symptom_followup
+= the user is answering a previous
+  clarification question with more
+  symptom information.
+
+explanation_request
+= the user is asking to understand,
+  explain, simplify, or clarify an
+  earlier result or message.
+
+Examples:
+"amk bujai dao eta"
+"eta bujhlam na"
+"explain this"
+"aro easy kore bolo"
+"এটা বুঝিয়ে বলো"
+
+These are NOT new symptom descriptions.
+
+greeting
+= hello, hi, thanks, etc.
+
+other
+= unrelated/non-medical text or text
+  that is not describing symptoms.
+
+VERY IMPORTANT:
+
+If intent is explanation_request,
+greeting, or other:
+
+- canonical_symptoms MUST be []
+- negated_symptoms MUST be []
+- clarification_needed MUST be false
+- NEVER guess symptoms from semantic
+  similarity.
+
+For symptom_input and symptom_followup,
+continue normal symptom extraction.
+
+Return a confidence from 0.0 to 1.0
+in intent_confidence.
 
 NEGATION:
 
@@ -376,6 +445,14 @@ USER MESSAGE:
             return {
                 "language":
                     parsed.language,
+
+                "intent":
+                    parsed.intent,
+
+                "intent_confidence":
+                    float(
+                        parsed.intent_confidence
+                    ),
 
                 "model_input":
                     canonical,

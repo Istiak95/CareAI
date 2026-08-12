@@ -1858,6 +1858,14 @@ async function sendMessage() {
 
     const data = await res.json();
 
+    if (data.status === "non_symptom") {
+      return (
+        <div className="error-box">
+          <p>💬 {data.message}</p>
+        </div>
+      );
+    }
+
     if (data.status === "clarification_needed") {
       setPendingClarification(apiMessage);
     } else {
@@ -1892,7 +1900,12 @@ async function sendMessage() {
         text
       );
 
-      if (data.status !== "clarification_needed") {
+      if (
+        ![
+          "clarification_needed",
+          "non_symptom",
+        ].includes(data.status)
+      ) {
         await saveReportToServer(
           data,
           finalChatId
