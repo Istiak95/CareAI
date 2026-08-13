@@ -2381,66 +2381,68 @@ def build_local_previous_result_explanation(
     language: str,
 ) -> str:
     """
-    Fallback explanation when Gemini is unavailable
-    or rate-limited.
+    Natural, Gemini-style deterministic fallback.
 
-    Uses only the actual previous CareAI result.
+    Important:
+    - No new prediction
+    - No invented symptoms
+    - No invented SHAP values
+    - Uses only the previous CareAI result
     """
 
-    if not isinstance(
-        previous_result,
-        dict,
-    ):
+    if not isinstance(previous_result, dict):
 
         if language == "bangla":
             return (
-                "আগে একটি symptom prediction তৈরি করো। "
-                "তারপর বলো 'আমাকে বুঝিয়ে দাও'।"
+                "অবশ্যই বুঝিয়ে দিতে পারি। তবে আগে তোমার symptoms "
+                "দিয়ে একটি prediction তৈরি করতে হবে। Result আসার "
+                "পর বলো, ‘আমাকে এটা বুঝিয়ে দাও’।"
             )
 
         return (
-            "Please generate a symptom prediction first, "
-            "then ask me to explain it."
+            "Sure, I can explain it. First, generate a prediction "
+            "from your symptoms, then ask me to explain the result."
         )
 
     matched = (
-        previous_result.get(
-            "matched_symptoms"
-        )
+        previous_result.get("matched_symptoms")
+        or previous_result.get("extracted_symptoms")
+        or []
+    )
+
+    negated = (
+        previous_result.get("negated_symptoms")
         or []
     )
 
     predictions = (
-        previous_result.get(
-            "top_predictions"
-        )
+        previous_result.get("top_predictions")
         or []
     )
 
     red_flag = bool(
-        previous_result.get(
-            "red_flag"
-        )
+        previous_result.get("red_flag")
     )
 
     red_flag_result = (
-        previous_result.get(
-            "red_flag_result"
-        )
+        previous_result.get("red_flag_result")
         or {}
     )
 
-    # --------------------------------------------------------
-    # RED FLAG explanation
-    # --------------------------------------------------------
+    # ========================================================
+    # RED FLAG
+    # ========================================================
 
     if red_flag:
 
         triggered = (
-            red_flag_result.get(
-                "triggered_symptoms"
-            )
+            red_flag_result.get("triggered_symptoms")
             or []
+        )
+
+        severity = (
+            red_flag_result.get("severity")
+            or "serious"
         )
 
         symptoms_text = (
@@ -2452,210 +2454,358 @@ def build_local_previous_result_explanation(
         if language == "bangla":
 
             return (
-                "আগের result-এ CareAI একটি safety red flag "
-                f"detect করেছে। Trigger হওয়া symptom: "
-                f"{symptoms_text}। "
-                "এই warning কোনো diagnosis নয়; এটি serious "
-                "symptom pattern-এর কারণে safety alert। "
-                "Red-flag warning থাকলে medical evaluation "
-                "delay করা উচিত নয়।"
+                "সহজভাবে বললে, CareAI তোমার আগের result-এ একটি "
+                f"{severity} safety warning দেখিয়েছে। এর কারণ হলো "
+                f"{symptoms_text} এর মতো symptom detect হয়েছে। "
+                "এখানে system কোনো disease নিশ্চিতভাবে diagnose "
+                "করেনি—বরং এই symptom pattern serious হতে পারে বলে "
+                "normal prediction-এর আগে safety alert দিয়েছে। "
+                "এই ধরনের red-flag result হলে medical evaluation "
+                "delay না করাই ভালো।"
             )
 
         return (
-            "The previous CareAI result triggered a safety "
-            f"red flag because of: {symptoms_text}. "
-            "This warning is not a diagnosis; it is a safety "
-            "alert based on serious symptom patterns. "
-            "A red-flag warning should not be ignored."
+            "In simple terms, CareAI triggered a "
+            f"{severity} safety warning because it detected "
+            f"{symptoms_text}. This does not mean a disease has "
+            "been confirmed. The system raised the alert because "
+            "this symptom pattern may require prompt medical "
+            "assessment, so a red-flag warning should not be ignored."
         )
 
-    # --------------------------------------------------------
-    # NORMAL PREDICTION explanation
-    # --------------------------------------------------------
+    # ========================================================
+    # NO PREDICTION
+    # ========================================================
 
     if not predictions:
 
         if language == "bangla":
             return (
                 "আগের result-এ explain করার মতো কোনো disease "
-                "prediction পাওয়া যায়নি।"
+                "prediction নেই। নতুন করে symptoms দিলে আমি সেই "
+                "resultটা সহজভাবে বুঝিয়ে বলতে পারব।"
             )
 
         return (
-            "The previous result does not contain a disease "
-            "prediction to explain."
+            "There is no disease prediction in the previous result "
+            "for me to explain. Enter your symptoms first, and I can "
+            "then explain the result in simple terms."
         )
+
+    # ========================================================
+    # TOP PREDICTION
+    # ========================================================
 
     top = predictions[0]
 
     disease = str(
-        top.get(
-            "disease",
-            "Unknown condition",
-        )
+        top.get("disease")
+        or "Unknown condition"
     )
 
-    confidence = top.get(
-        "confidence_percent"
-    )
+    confidence = top.get("confidence_percent")
 
     if confidence is None:
-
         try:
             confidence = round(
-                float(
-                    top.get(
-                        "confidence",
-                        0,
-                    )
-                )
-                * 100,
+                float(top.get("confidence", 0)) * 100,
                 2,
             )
-
         except Exception:
             confidence = 0
 
+    try:
+        confidence_num = float(confidence)
+    except Exception:
+        confidence_num = 0.0
+
+    # ========================================================
+    # SHAP
+    # ========================================================
+
+    shap_data = (
+        top.get("shap_explanation")
+        or {}
+    )
+
     shap_items = (
-        (
-            top.get(
-                "shap_explanation"
-            )
-            or {}
-        ).get(
+        shap_data.get(
             "present_symptom_contributions"
         )
         or []
     )
 
-    shap_items = sorted(
-        shap_items,
-        key=lambda item: abs(
-            float(
-                item.get(
-                    "contribution",
-                    0,
+    def contribution_value(item):
+        try:
+            return abs(
+                float(
+                    item.get(
+                        "contribution",
+                        item.get("shap_value", 0),
+                    )
                 )
             )
-        ),
+        except Exception:
+            return 0.0
+
+    shap_items = sorted(
+        shap_items,
+        key=contribution_value,
         reverse=True,
     )[:3]
 
     shap_names = [
-        str(
-            item.get(
-                "symptom",
-                "",
-            )
-        )
+        str(item.get("symptom")).strip()
         for item in shap_items
         if item.get("symptom")
     ]
+
+    # ========================================================
+    # OTHER PREDICTIONS
+    # ========================================================
 
     other_predictions = []
 
     for pred in predictions[1:3]:
 
-        name = pred.get(
-            "disease"
-        )
+        name = pred.get("disease")
+
+        if not name:
+            continue
 
         percent = pred.get(
             "confidence_percent"
         )
 
-        if name:
-
-            other_predictions.append(
-                f"{name}"
-                + (
-                    f" ({percent}%)"
-                    if percent is not None
-                    else ""
+        if percent is None:
+            try:
+                percent = round(
+                    float(
+                        pred.get(
+                            "confidence",
+                            0,
+                        )
+                    ) * 100,
+                    2,
                 )
+            except Exception:
+                percent = None
+
+        if percent is not None:
+            other_predictions.append(
+                f"{name} ({percent}%)"
             )
+        else:
+            other_predictions.append(
+                str(name)
+            )
+
+    # ========================================================
+    # OPTIONAL RECOMMENDATION
+    # ========================================================
+
+    recommendation = (
+        top.get("recommendation")
+        or {}
+    )
+
+    doctor_type = (
+        recommendation.get(
+            "doctor_type_patient_should_see"
+        )
+        or recommendation.get("doctor_type")
+        or recommendation.get("specialist")
+    )
+
+    tests = (
+        recommendation.get(
+            "common_tests_to_discuss_with_clinician"
+        )
+        or recommendation.get("tests")
+        or []
+    )
+
+    if isinstance(tests, str):
+        tests = [
+            value.strip()
+            for value in tests.split(";")
+            if value.strip()
+        ]
+
+    tests = list(tests)[:3]
+
+    # ========================================================
+    # BANGLA NATURAL EXPLANATION
+    # ========================================================
 
     if language == "bangla":
 
-        parts = [
-            (
-                f"আগের result-এ model-এর #1 সম্ভাব্য condition "
-                f"ছিল {disease}, confidence {confidence}%।"
-            )
-        ]
+        parts = []
+
+        parts.append(
+            f"সহজভাবে বললে, তোমার দেওয়া symptomগুলো analyse করে "
+            f"CareAI-এর model {disease}-কে সবচেয়ে উপরের সম্ভাব্য "
+            f"condition হিসেবে দেখিয়েছে। এর model confidence "
+            f"{confidence}%।"
+        )
 
         if matched:
 
             parts.append(
-                "Model যে present symptomগুলো analyse করেছে: "
+                "এই result তৈরি করার সময় model মূলত "
                 + ", ".join(matched)
-                + "।"
+                + " symptomগুলো consider করেছে।"
+            )
+
+        if negated:
+
+            parts.append(
+                "আর তুমি যেগুলো নেই বলে জানিয়েছিলে—"
+                + ", ".join(negated)
+                + "—সেগুলো present symptom হিসেবে prediction-এ "
+                "ব্যবহার করা হয়নি।"
             )
 
         if shap_names:
 
             parts.append(
-                "SHAP অনুযায়ী এই prediction-এর score-এ "
-                "সবচেয়ে বেশি প্রভাব রাখা present symptomগুলোর "
-                "মধ্যে ছিল "
+                "SHAP explanation অনুযায়ী "
                 + ", ".join(shap_names)
-                + "।"
+                + " এই prediction-এর score-এ সবচেয়ে বেশি influence "
+                "করেছে। সহজভাবে বলতে গেলে, model কেন এই result-এর "
+                "দিকে গেছে সেটা বোঝার জন্য এগুলো গুরুত্বপূর্ণ "
+                "signal ছিল।"
+            )
+
+        if confidence_num < 20:
+
+            parts.append(
+                "Confidence তুলনামূলকভাবে কম, তাই এই resultকে "
+                "strong বা নিশ্চিত prediction হিসেবে ধরা উচিত নয়।"
+            )
+
+        elif confidence_num < 50:
+
+            parts.append(
+                "Confidence খুব বেশি নয়, তাই অন্য সম্ভাবনাগুলোও "
+                "consider করা গুরুত্বপূর্ণ।"
             )
 
         if other_predictions:
 
             parts.append(
-                "অন্য সম্ভাব্য conditions ছিল "
+                "Model একই সাথে অন্য সম্ভাবনা হিসেবেও "
                 + ", ".join(other_predictions)
-                + "।"
+                + " দেখিয়েছে।"
+            )
+
+        if doctor_type:
+
+            parts.append(
+                f"আরও নিশ্চিতভাবে evaluate করার প্রয়োজন হলে "
+                f"recommendation অনুযায়ী {doctor_type}-এর সঙ্গে "
+                "আলোচনা করা যেতে পারে।"
+            )
+
+        if tests:
+
+            parts.append(
+                "Clinician প্রয়োজন মনে করলে "
+                + ", ".join(map(str, tests))
+                + " এর মতো test নিয়ে আলোচনা করতে পারেন।"
             )
 
         parts.append(
-            "এই confidence score নিশ্চিত diagnosis নয়। "
-            "SHAP শুধু model-এর decision-এ কোন symptom কতটা "
-            "প্রভাব ফেলেছে তা বুঝতে সাহায্য করে; এটি disease-এর "
-            "কারণ প্রমাণ করে না।"
+            "সবচেয়ে গুরুত্বপূর্ণ বিষয় হলো—এটা কোনো confirmed "
+            "diagnosis নয়। Confidence হলো model-এর prediction "
+            "score, আর SHAP দেখায় কোন symptom model-এর decision-এ "
+            "বেশি influence করেছে; এটি disease-এর কারণ প্রমাণ করে না।"
         )
 
         return " ".join(parts)
 
-    parts = [
-        (
-            f"In the previous result, the model's #1 possible "
-            f"condition was {disease} with {confidence}% confidence."
-        )
-    ]
+    # ========================================================
+    # ENGLISH NATURAL EXPLANATION
+    # ========================================================
+
+    parts = []
+
+    parts.append(
+        f"In simple terms, after analysing the symptoms you provided, "
+        f"CareAI ranked {disease} as the most likely condition in its "
+        f"model output, with a model confidence of {confidence}%."
+    )
 
     if matched:
 
         parts.append(
-            "The model analysed these present symptoms: "
+            "The model mainly used these present symptoms when making "
+            "that prediction: "
             + ", ".join(matched)
             + "."
+        )
+
+    if negated:
+
+        parts.append(
+            "The symptoms you specifically said were absent—"
+            + ", ".join(negated)
+            + "—were not treated as present symptoms in the prediction."
         )
 
     if shap_names:
 
         parts.append(
-            "According to SHAP, some of the present symptoms "
-            "with the strongest influence on this model score "
-            "were "
+            "According to the SHAP explanation, "
             + ", ".join(shap_names)
-            + "."
+            + " had some of the strongest influence on this model "
+            "score. In other words, they were important signals behind "
+            "why the model leaned toward this result."
+        )
+
+    if confidence_num < 20:
+
+        parts.append(
+            "The confidence is relatively low, so this should not be "
+            "treated as a strong or certain prediction."
+        )
+
+    elif confidence_num < 50:
+
+        parts.append(
+            "The confidence is not especially high, so the other "
+            "possibilities should also be kept in mind."
         )
 
     if other_predictions:
 
         parts.append(
-            "Other possible conditions included "
+            "The model also listed "
             + ", ".join(other_predictions)
-            + "."
+            + " as alternative possibilities."
+        )
+
+    if doctor_type:
+
+        parts.append(
+            f"If further clinical assessment is needed, the stored "
+            f"CareAI recommendation suggests discussing the result "
+            f"with a {doctor_type}."
+        )
+
+    if tests:
+
+        parts.append(
+            "A clinician may also consider discussing tests such as "
+            + ", ".join(map(str, tests))
+            + ", depending on the clinical situation."
         )
 
     parts.append(
-        "The confidence score is not a confirmed diagnosis. "
-        "SHAP describes influence on the model's decision; "
-        "it does not prove that a symptom caused a disease."
+        "Most importantly, this is not a confirmed diagnosis. "
+        "The confidence is a model score, and SHAP only explains "
+        "which symptoms influenced the model's decision; it does not "
+        "prove that those symptoms caused a disease."
     )
 
     return " ".join(parts)
@@ -2667,27 +2817,29 @@ def build_previous_result_explanation_response(
     language: str,
 ) -> Dict[str, Any]:
 
+    explanation_source = "local_fallback"
+    explanation = None
+
     if not previous_result:
 
         if language == "bangla":
-
             explanation = (
-                "আগে তোমার symptoms দিয়ে একটি result তৈরি করো। "
-                "তারপর বলো 'আমাকে বুঝিয়ে দাও'।"
+                "অবশ্যই বুঝিয়ে দিতে পারি। তবে আগে তোমার symptoms "
+                "দিয়ে একটি prediction তৈরি করো। Result আসার পর "
+                "বললেই আমি সহজভাবে বুঝিয়ে দেব।"
             )
-
         else:
-
             explanation = (
-                "Please generate a symptom result first. "
-                "Then ask me to explain it."
+                "Sure, I can explain it. First generate a prediction "
+                "from your symptoms, then ask me to explain the result."
             )
 
     else:
 
-        explanation = None
+        # ----------------------------------------------------
+        # Try Gemini first
+        # ----------------------------------------------------
 
-        # Gemini gives a more natural explanation when available.
         if gemini_symptom_engine is not None:
 
             explanation = (
@@ -2704,7 +2856,13 @@ def build_previous_result_explanation_response(
                 )
             )
 
-        # Gemini quota/down -> deterministic fallback.
+            if explanation:
+                explanation_source = "gemini"
+
+        # ----------------------------------------------------
+        # Gemini unavailable/quota/error -> natural local
+        # ----------------------------------------------------
+
         if not explanation:
 
             explanation = (
@@ -2713,6 +2871,8 @@ def build_previous_result_explanation_response(
                     language,
                 )
             )
+
+            explanation_source = "local_fallback"
 
     return {
         "status":
@@ -2756,11 +2916,20 @@ def build_previous_result_explanation_response(
                 "skip_prediction":
                     True,
 
+                # True ONLY when Gemini actually generated
+                # this explanation.
                 "gemini_used":
-                    (
-                        gemini_symptom_engine
-                        is not None
-                    ),
+                    explanation_source
+                    == "gemini",
+
+                # Gemini may be configured even when a
+                # particular request falls back.
+                "gemini_available":
+                    gemini_symptom_engine
+                    is not None,
+
+                "explanation_source":
+                    explanation_source,
             },
     }
 
