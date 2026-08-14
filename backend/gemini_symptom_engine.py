@@ -477,28 +477,90 @@ canonical_symptoms.
 
 CLARIFICATION:
 
-If NO symptom can safely be identified,
-but the user appears to be describing a
-symptom, do not guess.
+Ask ONE short clarification question when the user
+appears to describe a health symptom but mapping the
+message to a canonical symptom would require guessing.
 
-Set:
+Examples of missing information can include:
+
+- body location
+- symptom type
+- what the user actually means
+- whether a symptom is present or absent
+- another detail required to distinguish between
+  possible canonical symptoms
+
+IMPORTANT:
+
+Do NOT invent:
+- a body location
+- a symptom
+- severity
+- duration
+- presence or absence
+- a specific canonical feature
+
+If the input is vague, prefer clarification over guessing.
+
+When clarification is required:
 
 clarification_needed = true
 
-Then generate ONE short follow_up_question.
+Generate exactly ONE short follow_up_question.
 
-Use the same language style as the user.
+Use the same language style as the user:
+
+Banglish user -> Banglish question
+Bangla user -> Bangla question
+English user -> English question
 
 Examples:
 
-Banglish user -> Banglish question
+User:
+"amar betha hocche"
 
-Bangla user -> Bangla question
+Do NOT guess:
+pain foot
+pain chest
+back pain
+abdominal pain
+or another body location.
 
-English user -> English question
+Return no guessed location-specific symptom.
 
-If the text is unrelated or meaningless,
-return no symptoms.
+Ask:
+"Betha ta kothay hocche?"
+
+User:
+"I have pain"
+
+Ask:
+"Where are you feeling the pain?"
+
+User:
+"আমার ব্যথা হচ্ছে"
+
+Ask:
+"ব্যথাটা কোথায় হচ্ছে?"
+
+User:
+"amar kichu problem hocche"
+
+If the actual symptom cannot be identified,
+ask what problem or symptom the user is experiencing.
+
+User:
+"amar shash e problem"
+
+If it is unclear whether this means shortness of breath
+or something else, ask one brief clarification question.
+
+If the symptom is already clear enough to map safely,
+do NOT ask an unnecessary clarification question.
+
+If the text is unrelated, meaningless, greeting, or
+an explanation request, follow the intent rules above
+instead of asking a medical clarification question.
 
 ALLOWED CANONICAL SYMPTOMS:
 

@@ -3082,52 +3082,93 @@ def chat(request: ChatRequest):
             "clarification_needed",
             False,
         )
-        and not extracted_symptoms
     ):
-        question = (
-            extraction_details.get(
-                "follow_up_question"
+        # Gemini says the message is too ambiguous for a safe
+        # canonical mapping.
+        #
+        # Do not allow fuzzy/semantic guesses from the old engine
+        # to trigger a disease prediction.
+        #
+        # Safety exception:
+        # if the current extraction already triggers an actual
+        # CareAI red-flag rule, preserve the safety pathway.
+
+        clarification_safety_check = (
+            check_red_flag_rule(
+                extracted_symptoms
             )
-            or (
-                "Please describe your "
-                "symptom more clearly."
-            )
+            if extracted_symptoms
+            else {
+                "red_flag": False
+            }
         )
 
-        return {
-            "status":
-                "clarification_needed",
+        if not clarification_safety_check.get(
+            "red_flag",
+            False,
+        ):
+            question = (
+                extraction_details.get(
+                    "follow_up_question"
+                )
+                or (
+                    "Please describe your symptom "
+                    "a little more clearly."
+                )
+            )
 
-            "red_flag":
-                False,
+            # Keep these only for debugging.
+            # They are NOT sent into disease prediction.
+            extraction_details[
+                "discarded_for_clarification"
+            ] = list(
+                extracted_symptoms
+            )
 
-            "message":
-                question,
+            extraction_details[
+                "clarification_overrode_local_matches"
+            ] = bool(
+                extracted_symptoms
+            )
 
-            "extracted_symptoms":
-                [],
+            extraction_details[
+                "model_input"
+            ] = []
 
-            "matched_symptoms":
-                [],
+            return {
+                "status":
+                    "clarification_needed",
 
-            "unmatched_symptoms":
-                [],
+                "red_flag":
+                    False,
 
-            "red_flag_result":
-                None,
+                "message":
+                    question,
 
-            "top_predictions":
-                [],
+                "extracted_symptoms":
+                    [],
 
-            "possible_symptoms":
-                possible_symptoms,
+                "matched_symptoms":
+                    [],
 
-            "negated_symptoms":
-                negated_symptoms,
+                "unmatched_symptoms":
+                    [],
 
-            "symptom_extraction":
-                extraction_details,
-        }
+                "red_flag_result":
+                    None,
+
+                "top_predictions":
+                    [],
+
+                "possible_symptoms":
+                    possible_symptoms,
+
+                "negated_symptoms":
+                    negated_symptoms,
+
+                "symptom_extraction":
+                    extraction_details,
+            }
 
 
     result = predict_pipeline(
