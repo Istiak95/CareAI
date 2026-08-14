@@ -364,7 +364,17 @@ body {
 .error-box p {
   margin: 0;
 }
+.clarification-box {
+  padding: 14px 16px;
+  border: 1px solid #9edfdc;
+  background: #eefafa;
+  border-radius: 14px;
+  color: #087b78;
+}
 
+.clarification-box p {
+  margin: 0;
+}
 .red-flag {
   border: 2px solid #fca5a5;
   background: #fef2f2;

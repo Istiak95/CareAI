@@ -1990,7 +1990,7 @@ async function sendMessage() {
 
     if (data.status === "clarification_needed") {
       return (
-        <div className="error-box">
+        <div className="clarification-box">
           <p>💬 {data.message}</p>
         </div>
       );
