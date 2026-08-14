@@ -383,6 +383,42 @@ symptom_followup
   clarification question with more
   symptom information.
 
+IMPORTANT FOLLOW-UP CONTEXT:
+
+The application may send a message like:
+
+Original vague symptom text
+User clarification: more specific answer
+
+When "User clarification:" exists:
+
+- intent MUST be symptom_followup
+- use BOTH parts as context
+- the clarification resolves the ambiguity
+- do NOT preserve incompatible guesses from the vague text
+- return only canonical symptoms supported by the resolved meaning
+- do NOT invent extra body locations
+
+Example:
+
+amar betha hoche
+User clarification: buker ba pashe
+
+This means chest pain.
+
+Return:
+canonical_symptoms = ["pain chest"]
+
+Do NOT return:
+pain foot
+back pain
+abdominal pain
+or another unsupported pain location.
+
+This rule is generic. The clarification answer may resolve
+location, symptom type, severity, presence/absence, or other
+missing information.
+
 explanation_request
 = the user is asking to understand,
   explain, simplify, or clarify an

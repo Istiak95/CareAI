@@ -1334,32 +1334,71 @@ def extract_symptoms_from_message(
             )
 
     # ========================================================
+    # ========================================================
     # G. FINAL HYBRID POSITIVE MERGE
     # ========================================================
 
+    # A follow-up message contains the original vague text
+    # plus the user's clarification.
+    #
+    # Example:
+    # amar betha hoche
+    # User clarification: buker ba pashe
+    #
+    # In this situation Gemini's resolved canonical symptoms
+    # are authoritative. Otherwise an old fuzzy guess such as
+    # "pain foot" can survive beside the correct "pain chest".
+
+    is_followup_context = (
+        intent == "symptom_followup"
+        or "user clarification:" in message.lower()
+    )
+
     combined = []
 
-    # 1. Strong old exact/alias/fuzzy evidence survives.
-    for symptom in trusted_local:
+    if is_followup_context:
 
-        if symptom not in combined:
-            combined.append(
-                symptom
-            )
+        # FOLLOW-UP:
+        # Use Gemini's resolved canonical symptoms.
+        # Do not carry incompatible guesses from the
+        # original vague message into disease prediction.
+        for symptom in gemini_positive:
 
-    # 2. Gemini evidence is added.
-    for symptom in gemini_positive:
+            if symptom not in combined:
+                combined.append(
+                    symptom
+                )
 
-        if symptom not in combined:
-            combined.append(
-                symptom
-            )
+    else:
 
-    # 3. Old semantic matching still works.
+        # NORMAL MESSAGE:
+        # Preserve the original CareAI + Gemini hybrid logic.
+
+        # 1. Strong old exact/alias/fuzzy evidence.
+        for symptom in trusted_local:
+
+            if symptom not in combined:
+                combined.append(
+                    symptom
+                )
+
+        # 2. Gemini evidence.
+        for symptom in gemini_positive:
+
+            if symptom not in combined:
+                combined.append(
+                    symptom
+                )
+
+    # 3. SentenceTransformer semantic evidence remains.
     #
-    # Keep semantic result if:
-    # - Gemini independently agrees, OR
-    # - old semantic confidence is exceptionally high.
+    # Normal input:
+    #   keep when Gemini agrees OR score >= 0.90
+    #
+    # Follow-up:
+    #   keep ONLY when Gemini agrees, because the original
+    #   message was explicitly ambiguous.
+
     semantic_consensus = []
 
     for item in semantic_local:
@@ -1367,10 +1406,20 @@ def extract_symptoms_from_message(
         symptom = item["symptom"]
         score = item["score"]
 
-        if (
-            symptom in gemini_positive
-            or score >= 0.90
-        ):
+        if is_followup_context:
+
+            keep_semantic = (
+                symptom in gemini_positive
+            )
+
+        else:
+
+            keep_semantic = (
+                symptom in gemini_positive
+                or score >= 0.90
+            )
+
+        if keep_semantic:
 
             if symptom not in combined:
                 combined.append(
@@ -1706,6 +1755,9 @@ def extract_symptoms_from_message(
 
         "semantic_consensus":
             semantic_consensus,
+
+        "followup_gemini_authoritative":
+            is_followup_context,
 
         "safety_alias_matches":
             safety_alias_matches,
