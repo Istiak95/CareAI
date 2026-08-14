@@ -3223,6 +3223,147 @@ def chat(request: ChatRequest):
             }
 
 
+    # ========================================================
+    # SINGLE_SYMPTOM_FOLLOWUP_GATE
+    # ========================================================
+    #
+    # Generic rule only.
+    #
+    # NO disease-specific mapping.
+    # NO symptom-to-follow-up mapping.
+    # NO extra Gemini request.
+    #
+    # If exactly ONE canonical symptom is available and it does
+    # not already trigger a CareAI red flag, ask the user for
+    # one more symptom before running disease prediction.
+
+    unique_present_symptoms = list(
+        dict.fromkeys(
+            extracted_symptoms or []
+        )
+    )
+
+    single_symptom_safety_check = (
+        check_red_flag_rule(
+            unique_present_symptoms
+        )
+        if unique_present_symptoms
+        else {
+            "red_flag": False
+        }
+    )
+
+    if (
+        len(unique_present_symptoms) == 1
+        and not single_symptom_safety_check.get(
+            "red_flag",
+            False,
+        )
+    ):
+        detected_language = str(
+            (
+                extraction_details
+                or {}
+            ).get(
+                "language",
+                "english",
+            )
+            or "english"
+        ).lower()
+
+        # ----------------------------------------------------
+        # GENERIC QUESTION ONLY
+        # ----------------------------------------------------
+
+        if detected_language == "bangla":
+
+            follow_up_question = (
+                "এই symptom-এর সাথে আর কোনো symptom আছে? "
+                "থাকলে সেটাও বলুন।"
+            )
+
+        elif detected_language in {
+            "banglish",
+            "mixed",
+        }:
+
+            follow_up_question = (
+                "Ei symptom-er sathe ar kono symptom ache? "
+                "Thakle oitao bolun."
+            )
+
+        else:
+
+            follow_up_question = (
+                "Do you have any other symptoms along with this? "
+                "If yes, please describe them."
+            )
+
+        if extraction_details is None:
+            extraction_details = {}
+
+        extraction_details[
+            "clarification_needed"
+        ] = True
+
+        extraction_details[
+            "follow_up_question"
+        ] = follow_up_question
+
+        extraction_details[
+            "single_symptom_followup"
+        ] = True
+
+        extraction_details[
+            "single_symptom_detected"
+        ] = unique_present_symptoms[0]
+
+        extraction_details[
+            "skip_prediction"
+        ] = True
+
+        extraction_details[
+            "model_input"
+        ] = unique_present_symptoms
+
+        return {
+            "status":
+                "clarification_needed",
+
+            "red_flag":
+                False,
+
+            "message":
+                follow_up_question,
+
+            # Keep the correctly detected symptom visible
+            # in the response/debug data.
+            "extracted_symptoms":
+                unique_present_symptoms,
+
+            "matched_symptoms":
+                unique_present_symptoms,
+
+            "unmatched_symptoms":
+                [],
+
+            "red_flag_result":
+                None,
+
+            "top_predictions":
+                [],
+
+            "possible_symptoms":
+                possible_symptoms,
+
+            "negated_symptoms":
+                negated_symptoms,
+
+            "symptom_extraction":
+                extraction_details,
+        }
+
+
     result = predict_pipeline(
         user_symptoms=extracted_symptoms,
         top_k=request.top_k or TOP_K_DEFAULT,
