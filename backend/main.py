@@ -2431,122 +2431,42 @@ def detect_explanation_request_language(
 def build_local_previous_result_explanation(
     previous_result: Dict[str, Any],
     language: str,
+    user_message: str = "",
 ) -> str:
     """
-    Natural, Gemini-style deterministic fallback.
-
-    Important:
-    - No new prediction
-    - No invented symptoms
-    - No invented SHAP values
-    - Uses only the previous CareAI result
+    Short natural explanation when Gemini is unavailable.
+    No LLM/API request is made here.
     """
 
     if not isinstance(previous_result, dict):
 
         if language == "bangla":
             return (
-                "অবশ্যই বুঝিয়ে দিতে পারি। তবে আগে তোমার symptoms "
-                "দিয়ে একটি prediction তৈরি করতে হবে। Result আসার "
-                "পর বলো, ‘আমাকে এটা বুঝিয়ে দাও’।"
+                "আগে একটি CareAI result তৈরি করো, "
+                "তারপর আমি সেটি সহজভাবে বুঝিয়ে দেব।"
+            )
+
+        if language == "banglish":
+            return (
+                "Age ekta CareAI result create koro, "
+                "tarpor ami oita sohoj vabe bujai dibo."
             )
 
         return (
-            "Sure, I can explain it. First, generate a prediction "
-            "from your symptoms, then ask me to explain the result."
+            "Please generate a CareAI result first, "
+            "then I can explain it simply."
         )
-
-    matched = (
-        previous_result.get("matched_symptoms")
-        or previous_result.get("extracted_symptoms")
-        or []
-    )
-
-    negated = (
-        previous_result.get("negated_symptoms")
-        or []
-    )
 
     predictions = (
         previous_result.get("top_predictions")
         or []
     )
 
-    red_flag = bool(
-        previous_result.get("red_flag")
-    )
-
-    red_flag_result = (
-        previous_result.get("red_flag_result")
-        or {}
-    )
-
-    # ========================================================
-    # RED FLAG
-    # ========================================================
-
-    if red_flag:
-
-        triggered = (
-            red_flag_result.get("triggered_symptoms")
-            or []
-        )
-
-        severity = (
-            red_flag_result.get("severity")
-            or "serious"
-        )
-
-        symptoms_text = (
-            ", ".join(triggered)
-            if triggered
-            else "serious symptoms"
-        )
-
-        if language == "bangla":
-
-            return (
-                "সহজভাবে বললে, CareAI তোমার আগের result-এ একটি "
-                f"{severity} safety warning দেখিয়েছে। এর কারণ হলো "
-                f"{symptoms_text} এর মতো symptom detect হয়েছে। "
-                "এখানে system কোনো disease নিশ্চিতভাবে diagnose "
-                "করেনি—বরং এই symptom pattern serious হতে পারে বলে "
-                "normal prediction-এর আগে safety alert দিয়েছে। "
-                "এই ধরনের red-flag result হলে medical evaluation "
-                "delay না করাই ভালো।"
-            )
-
-        return (
-            "In simple terms, CareAI triggered a "
-            f"{severity} safety warning because it detected "
-            f"{symptoms_text}. This does not mean a disease has "
-            "been confirmed. The system raised the alert because "
-            "this symptom pattern may require prompt medical "
-            "assessment, so a red-flag warning should not be ignored."
-        )
-
-    # ========================================================
-    # NO PREDICTION
-    # ========================================================
-
     if not predictions:
-
-        if language == "bangla":
-            return (
-                "আগের result-এ explain করার মতো কোনো disease "
-                "prediction নেই। নতুন করে symptoms দিলে আমি সেই "
-                "resultটা সহজভাবে বুঝিয়ে বলতে পারব।"
-            )
-
         return (
-            "There is no disease prediction in the previous result "
-            "for me to explain. Enter your symptoms first, and I can "
-            "then explain the result in simple terms."
+            "There is no CareAI condition suggestion "
+            "available to explain."
         )
-
-    # ========================================================
-    # TOP PREDICTION
-    # ========================================================
 
     top = predictions[0]
 
@@ -2555,25 +2475,34 @@ def build_local_previous_result_explanation(
         or "Unknown condition"
     )
 
-    confidence = top.get("confidence_percent")
+    confidence = top.get(
+        "confidence_percent"
+    )
 
     if confidence is None:
         try:
             confidence = round(
-                float(top.get("confidence", 0)) * 100,
+                float(
+                    top.get("confidence", 0)
+                ) * 100,
                 2,
             )
         except Exception:
             confidence = 0
 
-    try:
-        confidence_num = float(confidence)
-    except Exception:
-        confidence_num = 0.0
+    symptoms = (
+        previous_result.get(
+            "matched_symptoms"
+        )
+        or previous_result.get(
+            "extracted_symptoms"
+        )
+        or []
+    )
 
-    # ========================================================
-    # SHAP
-    # ========================================================
+    symptoms_text = ", ".join(
+        map(str, symptoms)
+    )
 
     shap_data = (
         top.get("shap_explanation")
@@ -2587,13 +2516,16 @@ def build_local_previous_result_explanation(
         or []
     )
 
-    def contribution_value(item):
+    def shap_strength(item):
         try:
             return abs(
                 float(
                     item.get(
                         "contribution",
-                        item.get("shap_value", 0),
+                        item.get(
+                            "shap_value",
+                            0,
+                        ),
                     )
                 )
             )
@@ -2602,262 +2534,243 @@ def build_local_previous_result_explanation(
 
     shap_items = sorted(
         shap_items,
-        key=contribution_value,
+        key=shap_strength,
         reverse=True,
     )[:3]
 
     shap_names = [
-        str(item.get("symptom")).strip()
+        str(item.get("symptom"))
         for item in shap_items
         if item.get("symptom")
     ]
 
-    # ========================================================
-    # OTHER PREDICTIONS
-    # ========================================================
-
-    other_predictions = []
-
-    for pred in predictions[1:3]:
-
-        name = pred.get("disease")
-
-        if not name:
-            continue
-
-        percent = pred.get(
-            "confidence_percent"
-        )
-
-        if percent is None:
-            try:
-                percent = round(
-                    float(
-                        pred.get(
-                            "confidence",
-                            0,
-                        )
-                    ) * 100,
-                    2,
-                )
-            except Exception:
-                percent = None
-
-        if percent is not None:
-            other_predictions.append(
-                f"{name} ({percent}%)"
-            )
-        else:
-            other_predictions.append(
-                str(name)
-            )
-
-    # ========================================================
-    # OPTIONAL RECOMMENDATION
-    # ========================================================
+    shap_text = ", ".join(
+        shap_names
+    )
 
     recommendation = (
         top.get("recommendation")
         or {}
     )
 
-    doctor_type = (
+    doctor = (
         recommendation.get(
             "doctor_type_patient_should_see"
         )
-        or recommendation.get("doctor_type")
-        or recommendation.get("specialist")
+        or recommendation.get(
+            "doctor_type"
+        )
+        or recommendation.get(
+            "specialist"
+        )
+        or recommendation.get(
+            "see"
+        )
     )
 
     tests = (
         recommendation.get(
             "common_tests_to_discuss_with_clinician"
         )
-        or recommendation.get("tests")
+        or recommendation.get(
+            "tests"
+        )
         or []
     )
 
     if isinstance(tests, str):
         tests = [
-            value.strip()
-            for value in tests.split(";")
-            if value.strip()
+            x.strip()
+            for x in tests
+            .replace(";", ",")
+            .split(",")
+            if x.strip()
         ]
 
-    tests = list(tests)[:3]
+    tests = list(tests)[:5]
+
+    tests_text = ", ".join(
+        map(str, tests)
+    )
+
+    # --------------------------------------------------------
+    # Detect requested language from actual message
+    # --------------------------------------------------------
+
+    msg = str(user_message or "").lower()
+
+    has_bangla_script = any(
+        "\u0980" <= ch <= "\u09ff"
+        for ch in str(user_message or "")
+    )
+
+    if has_bangla_script:
+        output_language = "bangla"
+
+    elif any(
+        marker in msg
+        for marker in [
+            "explain",
+            "i can't understand",
+            "i cant understand",
+            "i don't understand",
+            "i dont understand",
+            "what does this mean",
+        ]
+    ):
+        output_language = "english"
+
+    elif any(
+        marker in msg
+        for marker in [
+            "bujai",
+            "bujhai",
+            "bujhlam",
+            "bujlam",
+            "bujhi",
+            "amk ",
+            "amake ",
+            "sohoj",
+            "easy kore",
+        ]
+    ):
+        output_language = "banglish"
+
+    else:
+        output_language = language
 
     # ========================================================
-    # BANGLA NATURAL EXPLANATION
+    # BANGLA
     # ========================================================
 
-    if language == "bangla":
+    if output_language == "bangla":
 
-        parts = []
+        parts = [
+            (
+                f"সহজভাবে বললে, CareAI তোমার "
+                f"{symptoms_text or 'দেওয়া symptom'}-এর ভিত্তিতে "
+                f"{disease}-কে সবচেয়ে সম্ভাব্য condition হিসেবে "
+                f"suggest করেছে, confidence {confidence}%।"
+            )
+        ]
 
-        parts.append(
-            f"সহজভাবে বললে, তোমার দেওয়া symptomগুলো analyse করে "
-            f"CareAI-এর model {disease}-কে সবচেয়ে উপরের সম্ভাব্য "
-            f"condition হিসেবে দেখিয়েছে। এর model confidence "
-            f"{confidence}%।"
-        )
-
-        if matched:
-
+        if shap_text:
             parts.append(
-                "এই result তৈরি করার সময় model মূলত "
-                + ", ".join(matched)
-                + " symptomগুলো consider করেছে।"
+                f"SHAP অনুযায়ী {shap_text} এই suggestion-এ "
+                "সবচেয়ে বেশি প্রভাব ফেলেছে।"
             )
 
-        if negated:
-
+        if doctor and tests_text:
             parts.append(
-                "আর তুমি যেগুলো নেই বলে জানিয়েছিলে—"
-                + ", ".join(negated)
-                + "—সেগুলো present symptom হিসেবে prediction-এ "
-                "ব্যবহার করা হয়নি।"
+                f"এই result অনুযায়ী {doctor}-এর সঙ্গে কথা বলা "
+                f"যেতে পারে এবং প্রয়োজন হলে {tests_text} test "
+                "নিয়ে doctor-এর সঙ্গে আলোচনা করা যেতে পারে।"
             )
 
-        if shap_names:
-
+        elif doctor:
             parts.append(
-                "SHAP explanation অনুযায়ী "
-                + ", ".join(shap_names)
-                + " এই prediction-এর score-এ সবচেয়ে বেশি influence "
-                "করেছে। সহজভাবে বলতে গেলে, model কেন এই result-এর "
-                "দিকে গেছে সেটা বোঝার জন্য এগুলো গুরুত্বপূর্ণ "
-                "signal ছিল।"
+                f"এই result অনুযায়ী {doctor}-এর সঙ্গে কথা বলা "
+                "যেতে পারে।"
             )
 
-        if confidence_num < 20:
-
+        elif tests_text:
             parts.append(
-                "Confidence তুলনামূলকভাবে কম, তাই এই resultকে "
-                "strong বা নিশ্চিত prediction হিসেবে ধরা উচিত নয়।"
-            )
-
-        elif confidence_num < 50:
-
-            parts.append(
-                "Confidence খুব বেশি নয়, তাই অন্য সম্ভাবনাগুলোও "
-                "consider করা গুরুত্বপূর্ণ।"
-            )
-
-        if other_predictions:
-
-            parts.append(
-                "Model একই সাথে অন্য সম্ভাবনা হিসেবেও "
-                + ", ".join(other_predictions)
-                + " দেখিয়েছে।"
-            )
-
-        if doctor_type:
-
-            parts.append(
-                f"আরও নিশ্চিতভাবে evaluate করার প্রয়োজন হলে "
-                f"recommendation অনুযায়ী {doctor_type}-এর সঙ্গে "
-                "আলোচনা করা যেতে পারে।"
-            )
-
-        if tests:
-
-            parts.append(
-                "Clinician প্রয়োজন মনে করলে "
-                + ", ".join(map(str, tests))
-                + " এর মতো test নিয়ে আলোচনা করতে পারেন।"
+                f"প্রয়োজন হলে {tests_text} test নিয়ে doctor-এর "
+                "সঙ্গে আলোচনা করা যেতে পারে।"
             )
 
         parts.append(
-            "সবচেয়ে গুরুত্বপূর্ণ বিষয় হলো—এটা কোনো confirmed "
-            "diagnosis নয়। Confidence হলো model-এর prediction "
-            "score, আর SHAP দেখায় কোন symptom model-এর decision-এ "
-            "বেশি influence করেছে; এটি disease-এর কারণ প্রমাণ করে না।"
+            "তবে এটি নিশ্চিত diagnosis নয়।"
         )
 
         return " ".join(parts)
 
     # ========================================================
-    # ENGLISH NATURAL EXPLANATION
+    # BANGLISH
     # ========================================================
 
-    parts = []
+    if output_language == "banglish":
+
+        parts = [
+            (
+                f"Sohoj vabe bolle, CareAI tomar "
+                f"{symptoms_text or 'deoa symptom'}-er upor base kore "
+                f"{disease}-ke shobcheye probable condition hisebe "
+                f"suggest koreche, confidence {confidence}%."
+            )
+        ]
+
+        if shap_text:
+            parts.append(
+                f"SHAP onujayi {shap_text} ei suggestion-e "
+                "shobcheye beshi influence koreche."
+            )
+
+        if doctor and tests_text:
+            parts.append(
+                f"Ei result onujayi {doctor}-er sathe kotha bola "
+                f"jete pare, ebong proyojon hole {tests_text} test "
+                "niye doctor-er sathe alochona kora jete pare."
+            )
+
+        elif doctor:
+            parts.append(
+                f"Ei result onujayi {doctor}-er sathe kotha bola "
+                "jete pare."
+            )
+
+        elif tests_text:
+            parts.append(
+                f"Proyojon hole {tests_text} test niye doctor-er "
+                "sathe alochona kora jete pare."
+            )
+
+        parts.append(
+            "Tobe eta confirmed diagnosis noy."
+        )
+
+        return " ".join(parts)
+
+    # ========================================================
+    # ENGLISH
+    # ========================================================
+
+    parts = [
+        (
+            f"In simple terms, CareAI suggests {disease} as the "
+            f"most likely condition based on your "
+            f"{symptoms_text or 'reported symptoms'}, with "
+            f"{confidence}% confidence."
+        )
+    ]
+
+    if shap_text:
+        parts.append(
+            f"According to SHAP, {shap_text} had the strongest "
+            "influence on this suggestion."
+        )
+
+    if doctor and tests_text:
+        parts.append(
+            f"Based on this result, you may consider speaking with "
+            f"a {doctor}, and if needed, discussing tests such as "
+            f"{tests_text} with your doctor."
+        )
+
+    elif doctor:
+        parts.append(
+            f"Based on this result, you may consider speaking with "
+            f"a {doctor}."
+        )
+
+    elif tests_text:
+        parts.append(
+            f"If needed, you can discuss tests such as "
+            f"{tests_text} with your doctor."
+        )
 
     parts.append(
-        f"In simple terms, after analysing the symptoms you provided, "
-        f"CareAI ranked {disease} as the most likely condition in its "
-        f"model output, with a model confidence of {confidence}%."
-    )
-
-    if matched:
-
-        parts.append(
-            "The model mainly used these present symptoms when making "
-            "that prediction: "
-            + ", ".join(matched)
-            + "."
-        )
-
-    if negated:
-
-        parts.append(
-            "The symptoms you specifically said were absent—"
-            + ", ".join(negated)
-            + "—were not treated as present symptoms in the prediction."
-        )
-
-    if shap_names:
-
-        parts.append(
-            "According to the SHAP explanation, "
-            + ", ".join(shap_names)
-            + " had some of the strongest influence on this model "
-            "score. In other words, they were important signals behind "
-            "why the model leaned toward this result."
-        )
-
-    if confidence_num < 20:
-
-        parts.append(
-            "The confidence is relatively low, so this should not be "
-            "treated as a strong or certain prediction."
-        )
-
-    elif confidence_num < 50:
-
-        parts.append(
-            "The confidence is not especially high, so the other "
-            "possibilities should also be kept in mind."
-        )
-
-    if other_predictions:
-
-        parts.append(
-            "The model also listed "
-            + ", ".join(other_predictions)
-            + " as alternative possibilities."
-        )
-
-    if doctor_type:
-
-        parts.append(
-            f"If further clinical assessment is needed, the stored "
-            f"CareAI recommendation suggests discussing the result "
-            f"with a {doctor_type}."
-        )
-
-    if tests:
-
-        parts.append(
-            "A clinician may also consider discussing tests such as "
-            + ", ".join(map(str, tests))
-            + ", depending on the clinical situation."
-        )
-
-    parts.append(
-        "Most importantly, this is not a confirmed diagnosis. "
-        "The confidence is a model score, and SHAP only explains "
-        "which symptoms influenced the model's decision; it does not "
-        "prove that those symptoms caused a disease."
+        "However, this is not a confirmed diagnosis."
     )
 
     return " ".join(parts)
@@ -2921,6 +2834,7 @@ def build_previous_result_explanation_response(
                 build_local_previous_result_explanation(
                     previous_result,
                     language,
+                    user_message,
                 )
             )
 

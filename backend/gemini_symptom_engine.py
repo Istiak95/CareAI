@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-import os
 import json
+import re
+
+import os
 from typing import List, Optional, Literal
 
 from google import genai
@@ -115,173 +117,300 @@ class GeminiSymptomEngine:
         user_message: str = "",
     ):
         """
-        Explain CareAI's PREVIOUS model result.
-
-        This never runs a new disease prediction.
+        Explain the existing CareAI result only.
+        No new disease suggestion is generated here.
         """
 
         if not isinstance(previous_result, dict):
             return None
 
-        predictions = []
+        predictions = (
+            previous_result.get("top_predictions")
+            or []
+        )
 
-        for pred in (
+        if not predictions:
+            return None
+
+        top = predictions[0]
+
+        disease = (
+            top.get("disease")
+            or "Unknown condition"
+        )
+
+        confidence = top.get(
+            "confidence_percent"
+        )
+
+        if confidence is None:
+            try:
+                confidence = round(
+                    float(
+                        top.get("confidence", 0)
+                    ) * 100,
+                    2,
+                )
+            except Exception:
+                confidence = 0
+
+        symptoms = (
             previous_result.get(
-                "top_predictions"
+                "matched_symptoms"
+            )
+            or previous_result.get(
+                "extracted_symptoms"
             )
             or []
-        )[:3]:
+        )
 
-            shap_items = (
-                (
-                    pred.get(
-                        "shap_explanation"
-                    )
-                    or {}
-                ).get(
-                    "present_symptom_contributions"
-                )
-                or []
-            )
+        # ----------------------------------------------------
+        # SHAP: strongest present symptoms only
+        # ----------------------------------------------------
 
-            predictions.append(
-                {
-                    "rank":
-                        pred.get("rank"),
-
-                    "disease":
-                        pred.get("disease"),
-
-                    "confidence_percent":
-                        pred.get(
-                            "confidence_percent"
-                        ),
-
-                    "shap":
-                        shap_items[:5],
-
-                    "recommendation":
-                        pred.get(
-                            "recommendation"
-                        )
-                        or {},
-                }
-            )
-
-        red_flag_result = (
-            previous_result.get(
-                "red_flag_result"
-            )
+        shap_data = (
+            top.get("shap_explanation")
             or {}
         )
 
-        summary = {
-            "status":
-                previous_result.get(
-                    "status"
-                ),
+        shap_items = (
+            shap_data.get(
+                "present_symptom_contributions"
+            )
+            or []
+        )
 
-            "red_flag":
-                previous_result.get(
-                    "red_flag",
-                    False,
-                ),
+        def shap_strength(item):
+            try:
+                return abs(
+                    float(
+                        item.get(
+                            "contribution",
+                            item.get(
+                                "shap_value",
+                                0,
+                            ),
+                        )
+                    )
+                )
+            except Exception:
+                return 0.0
 
-            "matched_symptoms":
-                previous_result.get(
-                    "matched_symptoms",
-                    [],
-                ),
+        shap_items = sorted(
+            shap_items,
+            key=shap_strength,
+            reverse=True,
+        )[:3]
 
-            "negated_symptoms":
-                previous_result.get(
-                    "negated_symptoms",
-                    [],
-                ),
+        shap_symptoms = [
+            str(item.get("symptom"))
+            for item in shap_items
+            if item.get("symptom")
+        ]
 
-            "red_flag_result":
-                {
-                    "severity":
-                        red_flag_result.get(
-                            "severity"
-                        ),
+        # ----------------------------------------------------
+        # CAREAI EXISTING RECOMMENDATION ONLY
+        # ----------------------------------------------------
 
-                    "reason":
-                        red_flag_result.get(
-                            "reason"
-                        ),
+        recommendation = (
+            top.get("recommendation")
+            or {}
+        )
 
-                    "triggered_symptoms":
-                        red_flag_result.get(
-                            "triggered_symptoms",
-                            [],
-                        ),
-                },
+        doctor = (
+            recommendation.get(
+                "doctor_type_patient_should_see"
+            )
+            or recommendation.get(
+                "doctor_type"
+            )
+            or recommendation.get(
+                "specialist"
+            )
+            or recommendation.get(
+                "see"
+            )
+        )
 
-            "top_predictions":
-                predictions,
+        tests = (
+            recommendation.get(
+                "common_tests_to_discuss_with_clinician"
+            )
+            or recommendation.get(
+                "tests"
+            )
+            or []
+        )
+
+        if isinstance(tests, str):
+            tests = [
+                x.strip()
+                for x in tests
+                .replace(";", ",")
+                .split(",")
+                if x.strip()
+            ]
+
+        tests = list(tests)[:5]
+
+        # ----------------------------------------------------
+        # LANGUAGE FROM ACTUAL USER REQUEST
+        # ----------------------------------------------------
+
+        msg = str(user_message or "").lower()
+
+        has_bangla_script = any(
+            "\u0980" <= ch <= "\u09ff"
+            for ch in str(user_message or "")
+        )
+
+        english_markers = [
+            "explain",
+            "i can't understand",
+            "i cant understand",
+            "i cannot understand",
+            "i don't understand",
+            "i dont understand",
+            "what does this mean",
+        ]
+
+        banglish_markers = [
+            "bujai",
+            "bujhai",
+            "bujhi na",
+            "bujhi nai",
+            "bujhlam na",
+            "bujlam na",
+            "sohoj kore",
+            "easy kore",
+            "amk ",
+            "amake ",
+        ]
+
+        if has_bangla_script:
+            output_language = "bangla"
+
+        elif any(
+            marker in msg
+            for marker in english_markers
+        ):
+            output_language = "english"
+
+        elif any(
+            marker in msg
+            for marker in banglish_markers
+        ):
+            output_language = "banglish"
+
+        elif language in {
+            "bangla",
+            "banglish",
+            "english",
+        }:
+            output_language = language
+
+        else:
+            output_language = "english"
+
+        data = {
+            "condition": disease,
+            "confidence_percent": confidence,
+            "present_symptoms": symptoms,
+            "shap_symptoms": shap_symptoms,
+            "doctor_suggestion": doctor,
+            "test_suggestions": tests,
         }
 
-        if language == "bangla":
+        if output_language == "bangla":
 
-            language_instruction = """
-Write the explanation in natural, easy
-BANGLA SCRIPT.
+            language_rule = """
+Respond in natural Bangla script.
 
-The user may have asked in Banglish,
-but your explanation MUST be in Bangla.
+Keep disease names, symptom names, doctor types,
+test names, SHAP and percentages in English when useful.
 
-Disease names, doctor types, test names,
-SHAP, and percentages may remain English
-when that is clearer.
+Use natural wording similar to:
 
-Do NOT reply in Banglish.
+সহজভাবে বললে, CareAI তোমার symptom-এর ভিত্তিতে
+X-কে সবচেয়ে সম্ভাব্য condition হিসেবে suggest করেছে,
+confidence Y%। SHAP অনুযায়ী ... এই suggestion-এ
+সবচেয়ে বেশি প্রভাব ফেলেছে। এই result অনুযায়ী ...
+doctor-এর সঙ্গে কথা বলা যেতে পারে এবং প্রয়োজন হলে
+... test নিয়ে doctor-এর সঙ্গে আলোচনা করা যেতে পারে।
+তবে এটি নিশ্চিত diagnosis নয়।
+"""
+
+        elif output_language == "banglish":
+
+            language_rule = """
+Respond in natural Banglish using Latin letters only.
+
+Do not use Bangla script.
+
+Use natural wording similar to:
+
+Sohoj vabe bolle, CareAI tomar symptom-er upor base kore
+X-ke shobcheye probable condition hisebe suggest koreche,
+confidence Y%. SHAP onujayi ... ei suggestion-e shobcheye
+beshi influence koreche. Ei result onujayi ... doctor-er
+sathe kotha bola jete pare, ebong proyojon hole ... test
+niye doctor-er sathe alochona kora jete pare.
+Tobe eta confirmed diagnosis noy.
 """
 
         else:
 
-            language_instruction = """
-Write the explanation in clear, easy English.
-Do not switch to Bangla or Banglish.
+            language_rule = """
+Respond in simple natural English.
+
+Use natural wording similar to:
+
+In simple terms, CareAI suggests X as the most likely
+condition based on the detected symptoms, with Y%
+confidence. According to SHAP, ... had the strongest
+influence on this suggestion. Based on this result,
+the user may consider speaking with ... and, if needed,
+discussing ... tests with their doctor.
+This is not a confirmed diagnosis.
 """
 
         prompt = f"""
 You are CareAI's explanation assistant.
 
-The user is asking you to explain an ALREADY
-GENERATED CareAI result.
+Explain ONLY the existing CareAI result below.
 
-IMPORTANT RULES:
+{language_rule}
 
-- Do NOT make a new disease prediction.
-- Do NOT change any confidence score.
-- Do NOT invent symptoms.
-- Do NOT invent SHAP values.
-- Do NOT diagnose the user.
-- Do NOT prescribe medicine.
-- Explain only the supplied CareAI result.
-- Clearly say that model predictions are not
-  confirmed medical diagnoses.
-- Explain confidence in simple language.
-- If SHAP information exists, explain which
-  PRESENT symptoms influenced the model score.
-- SHAP influence is model influence, NOT proof
-  that a symptom caused a disease.
-- If this is a red-flag result, explain why the
-  safety warning appeared and preserve its urgency.
-- Keep the explanation useful and reasonably short.
+STRICT RULES:
 
-{language_instruction}
+- Keep the complete explanation to 3-5 short sentences.
+- Say "CareAI", not "the model".
+- Use "suggest" or "suggestion", not "prediction".
+- Mention only the TOP-1 condition.
+- Mention the confidence.
+- Mention the detected present symptoms naturally.
+- Mention at most 2-3 SHAP symptom influences.
+- If a doctor suggestion exists, mention it naturally.
+- If test suggestions exist, mention them naturally.
+- Use ONLY doctor/test information supplied by CareAI.
+- Do NOT invent doctors or tests.
+- Do NOT add another disease.
+- Do NOT add treatment or medicine advice.
+- Do NOT add new medical facts.
+- Do NOT add new emergency advice.
+- Do NOT use headings.
+- Do NOT use bullet points.
+- End with one short sentence saying this is not a
+  confirmed diagnosis.
 
-USER'S EXPLANATION REQUEST:
+USER REQUEST:
 {user_message}
 
-PREVIOUS CAREAI RESULT:
-{json.dumps(summary, ensure_ascii=False)}
+CAREAI DATA:
+{json.dumps(data, ensure_ascii=False)}
 """
 
         try:
-
             interaction = (
                 self.client
                 .interactions
@@ -292,12 +421,12 @@ PREVIOUS CAREAI RESULT:
                 )
             )
 
-            explanation = str(
+            answer = str(
                 interaction.output_text
                 or ""
             ).strip()
 
-            return explanation or None
+            return answer or None
 
         except Exception as exc:
 
