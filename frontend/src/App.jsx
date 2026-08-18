@@ -2221,6 +2221,17 @@ async function sendMessage() {
             )}
           </div>
         </div>
+
+        {data.auto_explanation && (
+          <div className="auto-explanation-box">
+            <div className="auto-explanation-icon">💬</div>
+
+            <p>
+              {data.auto_explanation}
+            </p>
+          </div>
+        )}
+
         <button className="download-pdf-btn" onClick={downloadResultsPDF} title="Download entire reply as PDF">
           📥 Download Results
         </button>
