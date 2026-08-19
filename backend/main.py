@@ -4173,6 +4173,359 @@ def chat(
 
 
     # ========================================================
+    
+    # ========================================================
+    # TEMPORAL_HISTORY_PRE_GATE
+    # ========================================================
+    #
+    # This MUST run before SINGLE_SYMPTOM_FOLLOWUP_GATE.
+    #
+    # Example:
+    #   "amar 2 din age jor chilo"
+    #
+    # Old CareAI matcher may see "jor" -> fever.
+    # But Gemini temporal understanding says it is historical.
+    #
+    # Therefore historical/resolved symptoms are removed
+    # BEFORE the single-symptom gate gets a chance to run.
+    # ========================================================
+
+    if extraction_details:
+
+        temporal_historical = list(
+            extraction_details.get(
+                "historical_symptoms",
+                [],
+            )
+            or []
+        )
+
+        temporal_resolved = list(
+            extraction_details.get(
+                "resolved_symptoms",
+                [],
+            )
+            or []
+        )
+
+        temporal_negated = list(
+            extraction_details.get(
+                "negated_symptoms",
+                [],
+            )
+            or []
+        )
+
+        historical_not_current = set()
+        unresolved_history = []
+
+        for item in temporal_historical:
+
+            if not isinstance(item, dict):
+                continue
+
+            symptom = clean_symptom_text(
+                item.get(
+                    "symptom",
+                    "",
+                )
+            )
+
+            if symptom not in feature_set:
+                continue
+
+            still_present = item.get(
+                "still_present"
+            )
+
+            # Historical symptom is CURRENT only when
+            # the user explicitly says it is still present.
+            if still_present is not True:
+
+                historical_not_current.add(
+                    symptom
+                )
+
+            if still_present is None:
+
+                unresolved_history.append(
+                    item
+                )
+
+        resolved_set = {
+            clean_symptom_text(x)
+            for x in temporal_resolved
+            if clean_symptom_text(x)
+            in feature_set
+        }
+
+        negated_set = {
+            clean_symptom_text(x)
+            for x in temporal_negated
+            if clean_symptom_text(x)
+            in feature_set
+        }
+
+        temporal_excluded = (
+            historical_not_current
+            | resolved_set
+            | negated_set
+        )
+
+        # Remove historical symptoms from actual CareAI input.
+        extracted_symptoms = [
+            symptom
+            for symptom in extracted_symptoms
+            if symptom not in temporal_excluded
+        ]
+
+        extraction_details[
+            "model_input"
+        ] = [
+            symptom
+            for symptom in (
+                extraction_details.get(
+                    "model_input",
+                    [],
+                )
+                or []
+            )
+            if symptom not in temporal_excluded
+        ]
+
+        extraction_details[
+            "temporal_excluded_from_current"
+        ] = sorted(
+            temporal_excluded
+        )
+
+        detected_language = str(
+            extraction_details.get(
+                "language",
+                "english",
+            )
+            or "english"
+        ).lower()
+
+        # ----------------------------------------------------
+        # HISTORICAL ONLY
+        #
+        # "amar 2 din age jor chilo"
+        #
+        # Save memory, but DO NOT predict.
+        # ----------------------------------------------------
+
+        if (
+            unresolved_history
+            and len(extracted_symptoms) == 0
+        ):
+
+            memory_events_saved = 0
+
+            if current_user:
+
+                memory_events_saved = (
+                    save_symptom_memory_from_extraction(
+                        user_id=
+                            current_user["id"],
+
+                        source_message=
+                            request.message
+                            or "",
+
+                        extraction=
+                            extraction_details,
+                    )
+                )
+
+            extraction_details[
+                "persistent_memory_enabled"
+            ] = bool(
+                current_user
+            )
+
+            extraction_details[
+                "memory_events_saved"
+            ] = memory_events_saved
+
+            extraction_details[
+                "historical_only"
+            ] = True
+
+            extraction_details[
+                "clarification_needed"
+            ] = True
+
+            if detected_language == "bangla":
+
+                question = (
+                    "আপনি যে আগের উপসর্গের কথা বলেছেন, "
+                    "সেটি কি এখনো আছে?"
+                )
+
+            elif detected_language in {
+                "banglish",
+                "mixed",
+            }:
+
+                question = (
+                    "Apni je ager symptom-er kotha "
+                    "bolechen, seta ki ekhono ache?"
+                )
+
+            else:
+
+                question = (
+                    "Is the symptom you mentioned "
+                    "earlier still present now?"
+                )
+
+            extraction_details[
+                "follow_up_question"
+            ] = question
+
+            extraction_details[
+                "model_input"
+            ] = []
+
+            return {
+                "status":
+                    "clarification_needed",
+
+                "red_flag":
+                    False,
+
+                "message":
+                    question,
+
+                "extracted_symptoms":
+                    [],
+
+                "matched_symptoms":
+                    [],
+
+                "unmatched_symptoms":
+                    [],
+
+                "red_flag_result":
+                    None,
+
+                "top_predictions":
+                    [],
+
+                "possible_symptoms":
+                    possible_symptoms,
+
+                "negated_symptoms":
+                    negated_symptoms,
+
+                "symptom_extraction":
+                    extraction_details,
+            }
+
+
+        # ----------------------------------------------------
+        # RESOLVED HISTORICAL ONLY
+        #
+        # "2 din age jor chilo ekhon nai"
+        # ----------------------------------------------------
+
+        if (
+            temporal_resolved
+            and len(extracted_symptoms) == 0
+        ):
+
+            memory_events_saved = 0
+
+            if current_user:
+
+                memory_events_saved = (
+                    save_symptom_memory_from_extraction(
+                        user_id=
+                            current_user["id"],
+
+                        source_message=
+                            request.message
+                            or "",
+
+                        extraction=
+                            extraction_details,
+                    )
+                )
+
+            extraction_details[
+                "persistent_memory_enabled"
+            ] = bool(
+                current_user
+            )
+
+            extraction_details[
+                "memory_events_saved"
+            ] = memory_events_saved
+
+            if detected_language == "bangla":
+
+                history_message = (
+                    "আগের উপসর্গটি এখন আর নেই, "
+                    "তাই সেটিকে বর্তমান রোগের "
+                    "সম্ভাব্য ফলাফলে ব্যবহার করা হয়নি।"
+                )
+
+            elif detected_language in {
+                "banglish",
+                "mixed",
+            }:
+
+                history_message = (
+                    "Ager symptom-ta ekhon ar nei, "
+                    "tai current disease suggestion-e "
+                    "eta use kora hoyni."
+                )
+
+            else:
+
+                history_message = (
+                    "The earlier symptom is no longer "
+                    "present, so it was not used for "
+                    "the current disease suggestion."
+                )
+
+            return {
+                "status":
+                    "non_symptom",
+
+                "red_flag":
+                    False,
+
+                "message":
+                    history_message,
+
+                "extracted_symptoms":
+                    [],
+
+                "matched_symptoms":
+                    [],
+
+                "unmatched_symptoms":
+                    [],
+
+                "red_flag_result":
+                    None,
+
+                "top_predictions":
+                    [],
+
+                "possible_symptoms":
+                    possible_symptoms,
+
+                "negated_symptoms":
+                    negated_symptoms,
+
+                "symptom_extraction":
+                    extraction_details,
+            }
+
+
     # SINGLE_SYMPTOM_FOLLOWUP_GATE
     # ========================================================
     #
