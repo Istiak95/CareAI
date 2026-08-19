@@ -4,10 +4,28 @@ import json
 import re
 
 import os
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, Dict, Any
 
 from google import genai
 from pydantic import BaseModel, Field
+
+
+class TemporalSymptomEvent(BaseModel):
+
+    symptom: str
+
+    # Exact relative time only when the user gave one.
+    # Example: "2 din age" -> 2
+    days_ago: Optional[int] = Field(
+        default=None,
+        ge=0,
+        le=3650,
+    )
+
+    # True  = user clearly says it is still present now.
+    # False = user clearly says it has stopped/resolved.
+    # None  = current status is unknown.
+    still_present: Optional[bool] = None
 
 
 class GeminiSymptomResult(BaseModel):
@@ -36,6 +54,18 @@ class GeminiSymptomResult(BaseModel):
     )
 
     canonical_symptoms: List[str] = Field(
+        default_factory=list
+    )
+
+    # Symptoms that happened before now.
+    historical_symptoms: List[
+        TemporalSymptomEvent
+    ] = Field(
+        default_factory=list
+    )
+
+    # Symptoms explicitly described as no longer present.
+    resolved_symptoms: List[str] = Field(
         default_factory=list
     )
 
@@ -441,6 +471,9 @@ CAREAI DATA:
     def analyze(
         self,
         message: str,
+        memory_context: Optional[
+            List[Dict[str, Any]]
+        ] = None,
     ):
 
         message = str(
@@ -449,6 +482,22 @@ CAREAI DATA:
 
         if not message:
             return None
+
+        # Persistent memory is provided only for logged-in users.
+        # It is CONTEXT, never automatic current model input.
+        if not isinstance(memory_context, list):
+            memory_context = []
+
+        safe_memory_context = [
+            item
+            for item in memory_context[:20]
+            if isinstance(item, dict)
+        ]
+
+        memory_json = json.dumps(
+            safe_memory_context,
+            ensure_ascii=False,
+        )
 
         prompt = f"""
 You are the symptom-understanding NLP layer
@@ -495,6 +544,117 @@ TASKS:
 
 7. Every canonical symptom MUST exactly match
    one of the allowed symptom names.
+
+TEMPORAL SYMPTOM RULES:
+
+You MUST distinguish symptoms present NOW from symptoms
+that happened in the past.
+
+canonical_symptoms means CURRENT symptoms only.
+
+Never put a symptom into canonical_symptoms only because
+the user says it happened previously.
+
+Example 1:
+
+User:
+"amar 2 din age jor chilo"
+
+Return conceptually:
+
+canonical_symptoms = []
+
+historical_symptoms = [
+  {{
+    "symptom": "fever",
+    "days_ago": 2,
+    "still_present": null
+  }}
+]
+
+resolved_symptoms = []
+
+This does NOT mean fever is present now.
+
+Example 2:
+
+User:
+"2 din age jor shuru hoise ekhono ase"
+
+Return:
+
+canonical_symptoms = ["fever"]
+
+historical_symptoms = [
+  {{
+    "symptom": "fever",
+    "days_ago": 2,
+    "still_present": true
+  }}
+]
+
+Example 3:
+
+User:
+"2 din age jor chilo ekhon nai"
+
+Return:
+
+canonical_symptoms = []
+
+historical_symptoms = [
+  {{
+    "symptom": "fever",
+    "days_ago": 2,
+    "still_present": false
+  }}
+]
+
+resolved_symptoms = ["fever"]
+
+Example 4:
+
+User:
+"amar 2 din age jor chilo, ekhon kashi hocche"
+
+Return:
+
+canonical_symptoms = ["cough"]
+
+historical_symptoms = [
+  {{
+    "symptom": "fever",
+    "days_ago": 2,
+    "still_present": null
+  }}
+]
+
+The old fever MUST NOT become a current symptom.
+
+IMPORTANT:
+
+If an exact relative time was not stated,
+do not invent a days_ago value.
+Use null.
+
+RECENT CAREAI MEMORY:
+
+{memory_json}
+
+MEMORY SAFETY RULES:
+
+- The memory above is historical context only.
+- Never automatically copy a memory symptom into
+  canonical_symptoms.
+- A memory symptom becomes current only when the CURRENT
+  user message clearly confirms that it is still present.
+- Memory may be used to resolve explicit references such as:
+  "ager jor ta ekhono ase"
+  "the fever I mentioned before is still there"
+- Do not invent symptoms from memory.
+- The CURRENT user message always has priority over memory.
+- If the user says an old symptom is now gone,
+  put it in resolved_symptoms.
 
 INTENT CLASSIFICATION:
 
@@ -859,6 +1019,64 @@ USER MESSAGE:
                         symptom
                     )
 
+            # ================================================
+            # TEMPORAL SYMPTOM VALIDATION
+            # ================================================
+
+            historical = []
+
+            for event in parsed.historical_symptoms:
+
+                symptom = str(
+                    event.symptom
+                ).strip().lower()
+
+                if symptom not in self.feature_set:
+                    continue
+
+                item = {
+                    "symptom": symptom,
+                    "days_ago": event.days_ago,
+                    "still_present":
+                        event.still_present,
+                }
+
+                historical.append(item)
+
+            resolved = []
+
+            for symptom in parsed.resolved_symptoms:
+
+                symptom = str(
+                    symptom
+                ).strip().lower()
+
+                if (
+                    symptom in self.feature_set
+                    and symptom not in resolved
+                ):
+                    resolved.append(symptom)
+
+            # If the user explicitly says a historical symptom
+            # is STILL present, it is also a current symptom.
+            for item in historical:
+
+                symptom = item["symptom"]
+
+                if (
+                    item["still_present"] is True
+                    and symptom not in negated
+                    and symptom not in resolved
+                    and symptom not in canonical
+                ):
+                    canonical.append(symptom)
+
+                if (
+                    item["still_present"] is False
+                    and symptom not in resolved
+                ):
+                    resolved.append(symptom)
+
             # Never send explicitly negated
             # symptoms into prediction.
             canonical = [
@@ -867,8 +1085,10 @@ USER MESSAGE:
                 for symptom
                 in canonical
 
-                if symptom
-                not in negated
+                if (
+                    symptom not in negated
+                    and symptom not in resolved
+                )
             ]
 
             return {

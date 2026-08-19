@@ -22,7 +22,7 @@ try:
 except Exception:  # MySQL support is optional until configured
     mysql = None
     MySQLError = Exception
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
 
 import numpy as np
@@ -661,6 +661,531 @@ def get_current_user(authorization: Optional[str] = Header(default=None)) -> Dic
     return user_to_public_dict(row)
 
 
+
+# ============================================================
+# CAREAI_TEMPORAL_MEMORY_HELPERS
+# ============================================================
+#
+# Logged-in user:
+#   persistent TiDB/MySQL symptom memory
+#
+# Guest:
+#   NO persistent symptom memory
+#
+# IMPORTANT:
+# Stored memory is context only.
+# It never automatically becomes NB model input.
+# ============================================================
+
+
+def get_optional_current_user(
+    authorization: Optional[str],
+) -> Optional[Dict[str, Any]]:
+
+    if (
+        not authorization
+        or not authorization.lower().startswith(
+            "bearer "
+        )
+    ):
+        return None
+
+    try:
+        token = authorization.split(
+            " ",
+            1,
+        )[1].strip()
+
+        payload = decode_auth_token(token)
+
+        with get_db_connection() as conn:
+            row = conn.execute(
+                """
+                SELECT *
+                FROM users
+                WHERE id = ?
+                """,
+                (
+                    payload["user_id"],
+                ),
+            ).fetchone()
+
+        if row is None:
+            return None
+
+        return user_to_public_dict(row)
+
+    except Exception:
+        # Invalid/expired token:
+        # chat continues without persistent memory.
+        return None
+
+
+def init_symptom_memory_table() -> None:
+
+    with get_db_connection() as conn:
+
+        if DB_PROVIDER == "mysql":
+
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS symptom_memory (
+                    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+
+                    user_id INT NOT NULL,
+
+                    symptom VARCHAR(191) NOT NULL,
+
+                    status VARCHAR(30) NOT NULL,
+
+                    reported_days_ago INT NULL,
+
+                    event_at VARCHAR(40) NULL,
+
+                    source_message VARCHAR(500) NULL,
+
+                    created_at VARCHAR(40) NOT NULL,
+
+                    INDEX idx_memory_user_created (
+                        user_id,
+                        created_at
+                    ),
+
+                    INDEX idx_memory_user_symptom (
+                        user_id,
+                        symptom
+                    ),
+
+                    CONSTRAINT fk_symptom_memory_user
+                        FOREIGN KEY(user_id)
+                        REFERENCES users(id)
+                        ON DELETE CASCADE
+                )
+                ENGINE=InnoDB
+                DEFAULT CHARSET=utf8mb4
+                COLLATE=utf8mb4_unicode_ci
+                """
+            )
+
+        else:
+
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS symptom_memory (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+                    user_id INTEGER NOT NULL,
+
+                    symptom TEXT NOT NULL,
+
+                    status TEXT NOT NULL,
+
+                    reported_days_ago INTEGER,
+
+                    event_at TEXT,
+
+                    source_message TEXT,
+
+                    created_at TEXT NOT NULL,
+
+                    FOREIGN KEY(user_id)
+                        REFERENCES users(id)
+                        ON DELETE CASCADE
+                )
+                """
+            )
+
+        conn.commit()
+
+
+def symptom_memory_event_time(
+    days_ago: Optional[int],
+) -> Optional[str]:
+
+    if days_ago is None:
+        return None
+
+    try:
+        days = max(
+            0,
+            min(
+                int(days_ago),
+                3650,
+            ),
+        )
+    except Exception:
+        return None
+
+    value = (
+        datetime.utcnow()
+        - timedelta(days=days)
+    )
+
+    return (
+        value.isoformat(
+            timespec="seconds"
+        )
+        + "Z"
+    )
+
+
+def symptom_memory_days_since(
+    value: Optional[str],
+) -> Optional[int]:
+
+    if not value:
+        return None
+
+    try:
+        parsed = datetime.fromisoformat(
+            str(value).replace(
+                "Z",
+                "",
+            )
+        )
+
+        return max(
+            0,
+            (
+                datetime.utcnow()
+                - parsed
+            ).days,
+        )
+
+    except Exception:
+        return None
+
+
+def load_recent_symptom_memory(
+    user_id: int,
+    days: int = 30,
+    limit: int = 30,
+) -> List[Dict[str, Any]]:
+    """
+    Returns latest saved state of each symptom.
+
+    These rows are sent to Gemini as CONTEXT ONLY.
+    """
+
+    cutoff = (
+        datetime.utcnow()
+        - timedelta(
+            days=max(
+                1,
+                int(days),
+            )
+        )
+    ).isoformat(
+        timespec="seconds"
+    ) + "Z"
+
+    with get_db_connection() as conn:
+
+        rows = conn.execute(
+            """
+            SELECT
+                id,
+                symptom,
+                status,
+                reported_days_ago,
+                event_at,
+                created_at
+            FROM symptom_memory
+            WHERE user_id = ?
+              AND created_at >= ?
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (
+                int(user_id),
+                cutoff,
+                int(limit),
+            ),
+        ).fetchall()
+
+    result = []
+    seen = set()
+
+    for row in rows:
+
+        symptom = clean_symptom_text(
+            row["symptom"]
+        )
+
+        if symptom in seen:
+            continue
+
+        seen.add(symptom)
+
+        result.append(
+            {
+                "symptom":
+                    symptom,
+
+                "last_reported_status":
+                    str(
+                        row["status"]
+                    ),
+
+                # Recalculate relative age NOW instead of
+                # blindly reusing an old "2 days ago".
+                "event_days_ago_now":
+                    symptom_memory_days_since(
+                        row["event_at"]
+                    ),
+
+                "reported_memory_days_ago":
+                    symptom_memory_days_since(
+                        row["created_at"]
+                    ),
+            }
+        )
+
+    return result
+
+
+def save_symptom_memory_from_extraction(
+    user_id: int,
+    source_message: str,
+    extraction: Optional[
+        Dict[str, Any]
+    ],
+) -> int:
+
+    if not extraction:
+        return 0
+
+    # Temporal persistence only when Gemini actually
+    # participated in understanding the input.
+    if not extraction.get(
+        "gemini_used",
+        False,
+    ):
+        return 0
+
+    if extraction.get(
+        "intent"
+    ) not in {
+        "symptom_input",
+        "symptom_followup",
+    }:
+        return 0
+
+    events = {}
+
+    # Higher number wins if same symptom appears
+    # in multiple categories.
+    priorities = {
+        "historical": 1,
+        "current": 2,
+        "negated": 3,
+        "resolved": 4,
+    }
+
+    def add_event(
+        symptom,
+        status,
+        days_ago=None,
+    ):
+
+        symptom = clean_symptom_text(
+            symptom
+        )
+
+        if symptom not in feature_set:
+            return
+
+        if status not in priorities:
+            return
+
+        previous = events.get(symptom)
+
+        candidate = {
+            "symptom":
+                symptom,
+
+            "status":
+                status,
+
+            "days_ago":
+                days_ago,
+
+            "event_at":
+                symptom_memory_event_time(
+                    days_ago
+                ),
+        }
+
+        if previous is None:
+            events[symptom] = candidate
+            return
+
+        if (
+            priorities[status]
+            >
+            priorities[
+                previous["status"]
+            ]
+        ):
+            events[symptom] = candidate
+            return
+
+        if (
+            priorities[status]
+            ==
+            priorities[
+                previous["status"]
+            ]
+            and candidate["event_at"]
+            and not previous.get(
+                "event_at"
+            )
+        ):
+            events[symptom] = candidate
+
+
+    # Historical / temporal symptoms
+    for item in extraction.get(
+        "historical_symptoms",
+        [],
+    ) or []:
+
+        if not isinstance(item, dict):
+            continue
+
+        symptom = item.get(
+            "symptom"
+        )
+
+        days_ago = item.get(
+            "days_ago"
+        )
+
+        still_present = item.get(
+            "still_present"
+        )
+
+        if still_present is True:
+
+            add_event(
+                symptom,
+                "current",
+                days_ago,
+            )
+
+        elif still_present is False:
+
+            add_event(
+                symptom,
+                "resolved",
+                days_ago,
+            )
+
+        else:
+
+            add_event(
+                symptom,
+                "historical",
+                days_ago,
+            )
+
+
+    # Current symptoms after CareAI hybrid filtering
+    for symptom in extraction.get(
+        "model_input",
+        [],
+    ) or []:
+
+        add_event(
+            symptom,
+            "current",
+        )
+
+
+    # Explicit negation
+    for symptom in extraction.get(
+        "negated_symptoms",
+        [],
+    ) or []:
+
+        add_event(
+            symptom,
+            "negated",
+        )
+
+
+    # Explicitly resolved
+    for symptom in extraction.get(
+        "resolved_symptoms",
+        [],
+    ) or []:
+
+        add_event(
+            symptom,
+            "resolved",
+        )
+
+
+    if not events:
+        return 0
+
+    created_at = now_iso()
+
+    with get_db_connection() as conn:
+
+        for item in events.values():
+
+            conn.execute(
+                """
+                INSERT INTO symptom_memory (
+                    user_id,
+                    symptom,
+                    status,
+                    reported_days_ago,
+                    event_at,
+                    source_message,
+                    created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    int(user_id),
+                    item["symptom"],
+                    item["status"],
+                    item["days_ago"],
+                    item["event_at"],
+                    str(
+                        source_message
+                        or ""
+                    )[:500],
+                    created_at,
+                ),
+            )
+
+        conn.commit()
+
+    return len(events)
+
+
+def clear_symptom_memory(
+    user_id: int,
+) -> None:
+
+    with get_db_connection() as conn:
+
+        conn.execute(
+            """
+            DELETE FROM symptom_memory
+            WHERE user_id = ?
+            """,
+            (
+                int(user_id),
+            ),
+        )
+
+        conn.commit()
+
+
 def parse_messages_json(messages_json: str) -> List[Dict[str, Any]]:
     try:
         value = json.loads(messages_json or "[]")
@@ -736,6 +1261,7 @@ def load_all_assets():
     global gemini_symptom_engine
 
     init_database()
+    init_symptom_memory_table()
 
     model = load(MODEL_PATH)
     feature_names = [clean_symptom_text(f) for f in load(FEATURE_PATH)]
@@ -975,6 +1501,9 @@ def apply_red_flag_alias_resolver(
 
 def extract_symptoms_from_message(
     message: str,
+    memory_context: Optional[
+        List[Dict[str, Any]]
+    ] = None,
 ) -> Dict[str, Any]:
     """
     Final CareAI hybrid NLP:
@@ -1022,7 +1551,11 @@ def extract_symptoms_from_message(
     if gemini_symptom_engine is not None:
         gemini_result = (
             gemini_symptom_engine.analyze(
-                message
+                message,
+                memory_context=(
+                    memory_context
+                    or []
+                ),
             )
         )
 
@@ -1680,6 +2213,85 @@ def extract_symptoms_from_message(
         "matched_by_safety_alias"
     ]
 
+
+    # ========================================================
+    # TEMPORAL_CURRENT_ONLY_FILTER
+    # ========================================================
+    #
+    # The old normalizer may detect "fever" even in:
+    #
+    #   "2 din age jor chilo"
+    #
+    # Therefore temporal state from Gemini is applied AFTER
+    # the normal CareAI old+Gemini merge.
+    #
+    # Historical/resolved symptoms are NOT current model input.
+
+    historical_symptoms = list(
+        gemini_result.get(
+            "historical_symptoms",
+            [],
+        )
+        or []
+    )
+
+    resolved_symptoms = []
+
+    for symptom in gemini_result.get(
+        "resolved_symptoms",
+        [],
+    ) or []:
+
+        symptom = clean_symptom_text(
+            symptom
+        )
+
+        if (
+            symptom in feature_set
+            and symptom
+            not in resolved_symptoms
+        ):
+            resolved_symptoms.append(
+                symptom
+            )
+
+    historical_not_current = set()
+
+    for item in historical_symptoms:
+
+        if not isinstance(item, dict):
+            continue
+
+        symptom = clean_symptom_text(
+            item.get(
+                "symptom",
+                "",
+            )
+        )
+
+        if symptom not in feature_set:
+            continue
+
+        if item.get(
+            "still_present"
+        ) is not True:
+
+            historical_not_current.add(
+                symptom
+            )
+
+    temporal_excluded = (
+        historical_not_current
+        | set(resolved_symptoms)
+        | set(negated)
+    )
+
+    combined = [
+        symptom
+        for symptom in combined
+        if symptom not in temporal_excluded
+    ]
+
     # K. FINAL RESULT
     # ========================================================
 
@@ -1730,6 +2342,18 @@ def extract_symptoms_from_message(
         "follow_up_question":
             gemini_result.get(
                 "follow_up_question"
+            ),
+
+        "historical_symptoms":
+            historical_symptoms,
+
+        "resolved_symptoms":
+            resolved_symptoms,
+
+        "memory_context_count":
+            len(
+                memory_context
+                or []
             ),
 
         # Debug/provenance
@@ -2146,6 +2770,40 @@ def reset_password(request: ResetPasswordRequest):
 @app.get("/api/auth/me")
 def auth_me(current_user: Dict[str, Any] = Depends(get_current_user)):
     return {"user": current_user}
+
+
+
+@app.get("/api/memory")
+def get_my_symptom_memory(
+    current_user: Dict[str, Any] = Depends(
+        get_current_user
+    ),
+):
+    return {
+        "memory":
+            load_recent_symptom_memory(
+                current_user["id"],
+                days=30,
+                limit=50,
+            )
+    }
+
+
+@app.delete("/api/memory")
+def delete_my_symptom_memory(
+    current_user: Dict[str, Any] = Depends(
+        get_current_user
+    ),
+):
+    clear_symptom_memory(
+        current_user["id"]
+    )
+
+    return {
+        "status": "ok",
+        "message":
+            "Symptom memory cleared."
+    }
 
 
 @app.get("/api/chats")
@@ -2905,7 +3563,30 @@ def build_previous_result_explanation_response(
 
 
 @app.post("/api/chat", response_model=ChatResponse)
-def chat(request: ChatRequest):
+def chat(
+    request: ChatRequest,
+    authorization: Optional[str] = Header(
+        default=None
+    ),
+):
+    # Logged-in:
+    # persistent TiDB symptom memory.
+    #
+    # Guest:
+    # no persistent memory.
+    current_user = get_optional_current_user(
+        authorization
+    )
+
+    recent_symptom_memory = []
+
+    if current_user:
+        recent_symptom_memory = (
+            load_recent_symptom_memory(
+                current_user["id"]
+            )
+        )
+
     extracted_symptoms = []
     extraction_details = None
     possible_symptoms: List[Dict[str, Any]] = []
@@ -2949,13 +3630,363 @@ def chat(request: ChatRequest):
 
     # Natural text goes through dataset-aware normalization first.
     if request.message:
-        extraction_details = extract_symptoms_from_message(request.message)
+        extraction_details = extract_symptoms_from_message(
+            request.message,
+            memory_context=recent_symptom_memory,
+        )
         possible_symptoms = extraction_details.get("possible_symptoms", [])
         negated_symptoms = extraction_details.get("negated_symptoms", [])
 
         for symptom in extraction_details.get("model_input", []):
             if symptom not in extracted_symptoms:
                 extracted_symptoms.append(symptom)
+
+
+    # ========================================================
+    # SAVE_LOGGED_IN_TEMPORAL_MEMORY
+    # ========================================================
+
+    if extraction_details:
+
+        memory_events_saved = 0
+
+        if current_user:
+
+            memory_events_saved = (
+                save_symptom_memory_from_extraction(
+                    user_id=
+                        current_user["id"],
+
+                    source_message=
+                        request.message
+                        or "",
+
+                    extraction=
+                        extraction_details,
+                )
+            )
+
+        extraction_details[
+            "persistent_memory_enabled"
+        ] = bool(
+            current_user
+        )
+
+        extraction_details[
+            "memory_events_saved"
+        ] = memory_events_saved
+
+        extraction_details[
+            "recent_memory_context_count"
+        ] = len(
+            recent_symptom_memory
+        )
+
+
+        # ====================================================
+        # HISTORICAL SYMPTOM FOLLOW-UP
+        # ====================================================
+
+        historical = list(
+            extraction_details.get(
+                "historical_symptoms",
+                [],
+            )
+            or []
+        )
+
+        unresolved_history = [
+            item
+            for item in historical
+            if (
+                isinstance(
+                    item,
+                    dict,
+                )
+                and item.get(
+                    "still_present"
+                ) is None
+            )
+        ]
+
+        resolved_history = list(
+            extraction_details.get(
+                "resolved_symptoms",
+                [],
+            )
+            or []
+        )
+
+        current_unique = list(
+            dict.fromkeys(
+                extracted_symptoms
+            )
+        )
+
+        detected_language = str(
+            extraction_details.get(
+                "language",
+                "english",
+            )
+            or "english"
+        ).lower()
+
+
+        # Safety always gets priority.
+        temporal_red_flag = (
+            check_red_flag_rule(
+                current_unique
+            )
+            if current_unique
+            else {
+                "red_flag": False
+            }
+        )
+
+
+        # Example:
+        # "amar 2 din age jor chilo"
+        #
+        # Historical fever is saved,
+        # but NO disease prediction is made.
+        if (
+            unresolved_history
+            and len(current_unique) == 0
+        ):
+
+            if detected_language == "bangla":
+
+                question = (
+                    "আপনি যে আগের উপসর্গের কথা "
+                    "বলেছেন, সেটি কি এখনো আছে?"
+                )
+
+            elif detected_language in {
+                "banglish",
+                "mixed",
+            }:
+
+                question = (
+                    "Apni je ager symptom-er "
+                    "kotha bolechen, seta ki "
+                    "ekhono ache?"
+                )
+
+            else:
+
+                question = (
+                    "Is the symptom you mentioned "
+                    "earlier still present now?"
+                )
+
+            extraction_details[
+                "clarification_needed"
+            ] = True
+
+            extraction_details[
+                "follow_up_question"
+            ] = question
+
+            extraction_details[
+                "historical_only"
+            ] = True
+
+            extraction_details[
+                "model_input"
+            ] = []
+
+            return {
+                "status":
+                    "clarification_needed",
+
+                "red_flag":
+                    False,
+
+                "message":
+                    question,
+
+                "extracted_symptoms":
+                    [],
+
+                "matched_symptoms":
+                    [],
+
+                "unmatched_symptoms":
+                    [],
+
+                "red_flag_result":
+                    None,
+
+                "top_predictions":
+                    [],
+
+                "possible_symptoms":
+                    possible_symptoms,
+
+                "negated_symptoms":
+                    negated_symptoms,
+
+                "symptom_extraction":
+                    extraction_details,
+            }
+
+
+        # Example:
+        # "2 din age jor chilo,
+        #  ekhon kashi hocche"
+        #
+        # One current non-red-flag symptom exists.
+        # Ask whether the previous symptom is still present.
+        if (
+            unresolved_history
+            and len(current_unique) == 1
+            and not temporal_red_flag.get(
+                "red_flag",
+                False,
+            )
+        ):
+
+            if detected_language == "bangla":
+
+                question = (
+                    "আগের যে উপসর্গের কথা "
+                    "বলেছেন, সেটি কি এখনো আছে?"
+                )
+
+            elif detected_language in {
+                "banglish",
+                "mixed",
+            }:
+
+                question = (
+                    "Ager je symptom-er kotha "
+                    "bolechen, seta ki ekhono ache?"
+                )
+
+            else:
+
+                question = (
+                    "Is the earlier symptom "
+                    "still present now?"
+                )
+
+            extraction_details[
+                "clarification_needed"
+            ] = True
+
+            extraction_details[
+                "follow_up_question"
+            ] = question
+
+            extraction_details[
+                "model_input"
+            ] = current_unique
+
+            return {
+                "status":
+                    "clarification_needed",
+
+                "red_flag":
+                    False,
+
+                "message":
+                    question,
+
+                "extracted_symptoms":
+                    current_unique,
+
+                "matched_symptoms":
+                    current_unique,
+
+                "unmatched_symptoms":
+                    [],
+
+                "red_flag_result":
+                    None,
+
+                "top_predictions":
+                    [],
+
+                "possible_symptoms":
+                    possible_symptoms,
+
+                "negated_symptoms":
+                    negated_symptoms,
+
+                "symptom_extraction":
+                    extraction_details,
+            }
+
+
+        # Example:
+        # "jor chilo, ekhon nai"
+        if (
+            resolved_history
+            and len(current_unique) == 0
+        ):
+
+            if detected_language == "bangla":
+
+                history_message = (
+                    "আগের উপসর্গটি এখন আর নেই, "
+                    "তাই সেটিকে বর্তমান রোগের "
+                    "সম্ভাব্য ফলাফলে ব্যবহার করা হয়নি।"
+                )
+
+            elif detected_language in {
+                "banglish",
+                "mixed",
+            }:
+
+                history_message = (
+                    "Ager symptom-ta ekhon ar nei, "
+                    "tai current disease suggestion-e "
+                    "eta use kora hoyni."
+                )
+
+            else:
+
+                history_message = (
+                    "The earlier symptom is no longer "
+                    "present, so it was not used for "
+                    "the current disease suggestion."
+                )
+
+            return {
+                "status":
+                    "non_symptom",
+
+                "red_flag":
+                    False,
+
+                "message":
+                    history_message,
+
+                "extracted_symptoms":
+                    [],
+
+                "matched_symptoms":
+                    [],
+
+                "unmatched_symptoms":
+                    [],
+
+                "red_flag_result":
+                    None,
+
+                "top_predictions":
+                    [],
+
+                "possible_symptoms":
+                    possible_symptoms,
+
+                "negated_symptoms":
+                    negated_symptoms,
+
+                "symptom_extraction":
+                    extraction_details,
+            }
+
 
     # GEMINI_EXPLANATION_REQUEST
     if (
