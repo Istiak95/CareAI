@@ -2522,6 +2522,10 @@ class ChatResponse(BaseModel):
     auto_explanation: Optional[str] = None
     auto_explanation_source: Optional[str] = None
 
+    # Internal context used by the frontend when the next
+    # message is an answer to a clarification question.
+    clarification_context: Optional[str] = None
+
 
 
 
@@ -4524,6 +4528,303 @@ def chat(
                 "symptom_extraction":
                     extraction_details,
             }
+
+
+
+    # ========================================================
+    # CROSS_DAY_MEMORY_FOLLOWUP_GATE
+    # ========================================================
+    #
+    # Example:
+    #
+    # Day 1:
+    #   fever
+    #
+    # Day 3:
+    #   cough
+    #
+    # The saved fever must NOT automatically become current.
+    # Instead, if exactly one NEW current symptom exists,
+    # ask whether the previous unresolved symptom is still
+    # present.
+    #
+    # Generic for every canonical symptom.
+    # No fever-specific mapping.
+    # ========================================================
+
+    if (
+        current_user
+        and extraction_details
+        and recent_symptom_memory
+    ):
+
+        current_memory_gate_symptoms = list(
+            dict.fromkeys(
+                extracted_symptoms
+                or []
+            )
+        )
+
+        memory_gate_safety = (
+            check_red_flag_rule(
+                current_memory_gate_symptoms
+            )
+            if current_memory_gate_symptoms
+            else {
+                "red_flag": False
+            }
+        )
+
+        # Only replace the normal single-symptom follow-up.
+        # If 2+ current symptoms already exist, normal CareAI
+        # prediction can continue.
+        if (
+            len(
+                current_memory_gate_symptoms
+            ) == 1
+            and not memory_gate_safety.get(
+                "red_flag",
+                False,
+            )
+        ):
+
+            current_set = set(
+                current_memory_gate_symptoms
+            )
+
+            remembered_candidate = None
+
+            for memory_item in recent_symptom_memory:
+
+                if not isinstance(
+                    memory_item,
+                    dict,
+                ):
+                    continue
+
+                remembered_symptom = (
+                    clean_symptom_text(
+                        memory_item.get(
+                            "symptom",
+                            "",
+                        )
+                    )
+                )
+
+                remembered_status = str(
+                    memory_item.get(
+                        "last_reported_status",
+                        "",
+                    )
+                    or ""
+                ).lower()
+
+                remembered_age = (
+                    memory_item.get(
+                        "reported_memory_days_ago"
+                    )
+                )
+
+                # Only an old unresolved/potentially-active
+                # symptom is worth asking about.
+                if remembered_status not in {
+                    "current",
+                    "historical",
+                }:
+                    continue
+
+                if (
+                    remembered_symptom
+                    not in feature_set
+                ):
+                    continue
+
+                # Don't ask about the symptom the user
+                # has just reported again.
+                if (
+                    remembered_symptom
+                    in current_set
+                ):
+                    continue
+
+                try:
+                    remembered_age = int(
+                        remembered_age
+                    )
+                except Exception:
+                    continue
+
+                # Cross-day behaviour.
+                # Same-day memory does not trigger this gate.
+                if remembered_age < 1:
+                    continue
+
+                remembered_candidate = {
+                    "symptom":
+                        remembered_symptom,
+
+                    "age_days":
+                        remembered_age,
+
+                    "status":
+                        remembered_status,
+                }
+
+                # Ask about only the most recent suitable
+                # remembered symptom.
+                break
+
+
+            if remembered_candidate:
+
+                remembered_symptom = (
+                    remembered_candidate[
+                        "symptom"
+                    ]
+                )
+
+                remembered_age = (
+                    remembered_candidate[
+                        "age_days"
+                    ]
+                )
+
+                detected_language = str(
+                    extraction_details.get(
+                        "language",
+                        "english",
+                    )
+                    or "english"
+                ).lower()
+
+
+                # ------------------------------------------------
+                # User-facing question
+                # ------------------------------------------------
+
+                if detected_language == "bangla":
+
+                    question = (
+                        f"{remembered_age} দিন আগে আপনি "
+                        f"{remembered_symptom}-এর কথা "
+                        "বলেছিলেন। এটি কি এখনো আছে?"
+                    )
+
+                elif detected_language in {
+                    "banglish",
+                    "mixed",
+                }:
+
+                    question = (
+                        f"{remembered_age} din age apni "
+                        f"{remembered_symptom}-er kotha "
+                        "bolechilen. Eta ki ekhono ache?"
+                    )
+
+                else:
+
+                    day_word = (
+                        "day"
+                        if remembered_age == 1
+                        else "days"
+                    )
+
+                    question = (
+                        f"{remembered_age} {day_word} ago "
+                        f"you reported {remembered_symptom}. "
+                        "Is it still present now?"
+                    )
+
+
+                # ------------------------------------------------
+                # This hidden context is sent back with the
+                # user's NEXT clarification.
+                #
+                # Example next request:
+                #
+                # Current symptom: cough
+                # Previous symptom to resolve: fever
+                # User clarification: hea ekhono ase
+                #
+                # This removes ambiguity for Gemini.
+                # ------------------------------------------------
+
+                clarification_context = (
+                    "CAREAI MEMORY FOLLOW-UP\n"
+                    f"Current user symptom(s): "
+                    f"{', '.join(current_memory_gate_symptoms)}\n"
+                    f"Previously reported symptom to resolve: "
+                    f"{remembered_symptom}\n"
+                    f"Previously reported approximately "
+                    f"{remembered_age} day(s) ago.\n"
+                    "The user's next clarification answers "
+                    "whether this previous symptom is still "
+                    "present now."
+                )
+
+
+                extraction_details[
+                    "clarification_needed"
+                ] = True
+
+                extraction_details[
+                    "follow_up_question"
+                ] = question
+
+                extraction_details[
+                    "memory_followup"
+                ] = True
+
+                extraction_details[
+                    "memory_followup_symptom"
+                ] = remembered_symptom
+
+                extraction_details[
+                    "memory_followup_age_days"
+                ] = remembered_age
+
+                extraction_details[
+                    "skip_prediction"
+                ] = True
+
+
+                return {
+                    "status":
+                        "clarification_needed",
+
+                    "red_flag":
+                        False,
+
+                    "message":
+                        question,
+
+                    "extracted_symptoms":
+                        current_memory_gate_symptoms,
+
+                    "matched_symptoms":
+                        current_memory_gate_symptoms,
+
+                    "unmatched_symptoms":
+                        [],
+
+                    "red_flag_result":
+                        None,
+
+                    "top_predictions":
+                        [],
+
+                    "possible_symptoms":
+                        possible_symptoms,
+
+                    "negated_symptoms":
+                        negated_symptoms,
+
+                    "symptom_extraction":
+                        extraction_details,
+
+                    "clarification_context":
+                        clarification_context,
+                }
 
 
     # SINGLE_SYMPTOM_FOLLOWUP_GATE

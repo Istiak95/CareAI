@@ -1878,7 +1878,9 @@ async function sendMessage() {
     const data = await res.json();
 
     if (data.status === "clarification_needed") {
-      setPendingClarification(apiMessage);
+      setPendingClarification(
+        data.clarification_context || apiMessage
+      );
     } else {
       setPendingClarification("");
     }
