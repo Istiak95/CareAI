@@ -1982,6 +1982,7 @@ async function sendMessage() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        ...getAuthHeaders(),
       },
       body: JSON.stringify({
         message: apiMessage,
