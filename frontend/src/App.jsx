@@ -460,6 +460,68 @@ function PasswordStrength({
 }
 
 
+function PasswordInput({
+  value,
+  onChange,
+  placeholder,
+  ...inputProps
+}) {
+  const [showPassword, setShowPassword] =
+    useState(false);
+
+  return (
+    <div className="password-input-wrapper">
+      <input
+        {...inputProps}
+        type={showPassword ? "text" : "password"}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+      />
+
+      <button
+        className="password-visibility-button"
+        type="button"
+        onClick={() =>
+          setShowPassword((current) => !current)
+        }
+        aria-label={
+          showPassword
+            ? "Hide password"
+            : "Show password"
+        }
+        aria-pressed={showPassword}
+        title={
+          showPassword
+            ? "Hide password"
+            : "Show password"
+        }
+      >
+        {showPassword ? (
+          <svg
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path d="M3 3 21 21" />
+            <path d="M10.6 10.7a2 2 0 0 0 2.7 2.7" />
+            <path d="M9.9 4.2A10.8 10.8 0 0 1 12 4c5.5 0 9 6 9 6a17.4 17.4 0 0 1-3 3.8" />
+            <path d="M6.6 6.6C4.4 8.1 3 10 3 10s3.5 6 9 6c1 0 2-.2 2.9-.5" />
+          </svg>
+        ) : (
+          <svg
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path d="M3 10s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6Z" />
+            <circle cx="12" cy="10" r="2.5" />
+          </svg>
+        )}
+      </button>
+    </div>
+  );
+}
+
+
 function AuthPanel({
   user,
   authLoading,
@@ -672,7 +734,7 @@ function AuthPanel({
         />
 
 
-        <input
+        <PasswordInput
           value={authForm.password}
           onChange={(e) =>
             setAuthForm((prev) => ({
@@ -682,7 +744,11 @@ function AuthPanel({
             }))
           }
           placeholder="Password"
-          type="password"
+          autoComplete={
+            authMode === "login"
+              ? "current-password"
+              : "new-password"
+          }
           minLength={6}
           required
         />
@@ -1010,10 +1076,10 @@ function ResetPasswordView({
           }
         >
 
-          <input
-            type="password"
+          <PasswordInput
             placeholder="New password"
             value={password}
+            autoComplete="new-password"
             minLength={6}
             required
             onChange={(event) =>
@@ -1029,10 +1095,10 @@ function ResetPasswordView({
           />
 
 
-          <input
-            type="password"
+          <PasswordInput
             placeholder="Confirm new password"
             value={confirmPassword}
+            autoComplete="new-password"
             minLength={6}
             required
             onChange={(event) =>
@@ -1145,6 +1211,9 @@ export default function App() {
   const [autoSaveStatus, setAutoSaveStatus] = useState("");
   const recognitionRef = useRef(null);
   const voiceSeedRef = useRef("");
+  const voiceFinalTextRef = useRef("");
+  const keepListeningRef = useRef(false);
+  const voiceRestartTimerRef = useRef(null);
   const messagesEndRef = useRef(null);
   const messageCountRef = useRef(1);
   const resultsRef = useRef(null);
@@ -1203,9 +1272,14 @@ export default function App() {
 
  useEffect(() => {
   return () => {
+    keepListeningRef.current = false;
+    window.clearTimeout(
+      voiceRestartTimerRef.current
+    );
+
     if (recognitionRef.current) {
       try {
-        recognitionRef.current.stop();
+        recognitionRef.current.abort();
       } catch (error) {
         console.error("Voice cleanup failed:", error);
       }
@@ -1647,6 +1721,25 @@ export default function App() {
     }
   }
 
+const stopVoiceInput = () => {
+  keepListeningRef.current = false;
+  window.clearTimeout(
+    voiceRestartTimerRef.current
+  );
+  setIsListening(false);
+
+  if (recognitionRef.current) {
+    try {
+      recognitionRef.current.stop();
+    } catch (error) {
+      console.error(
+        "Could not stop voice recognition:",
+        error
+      );
+    }
+  }
+};
+
 const startVoiceInput = () => {
   const SpeechRecognitionAPI =
     window.SpeechRecognition ||
@@ -1659,31 +1752,27 @@ const startVoiceInput = () => {
     return;
   }
 
-  // Microphone আবার চাপলে listening বন্ধ হবে
-  if (isListening && recognitionRef.current) {
-    try {
-      recognitionRef.current.stop();
-    } catch (error) {
-      console.error(
-        "Could not stop voice recognition:",
-        error
-      );
-    }
-
+  // Microphone আবার চাপলেই continuous listening বন্ধ হবে।
+  if (keepListeningRef.current) {
+    stopVoiceInput();
     return;
   }
+
+  window.clearTimeout(
+    voiceRestartTimerRef.current
+  );
 
   const recognition = new SpeechRecognitionAPI();
 
   recognitionRef.current = recognition;
   voiceSeedRef.current = input.trim();
+  voiceFinalTextRef.current = "";
+  keepListeningRef.current = true;
 
   recognition.lang = voiceLanguage;
-  recognition.interimResults = false;
-  recognition.continuous = false;
+  recognition.interimResults = true;
+  recognition.continuous = true;
   recognition.maxAlternatives = 5;
-
-  let receivedResult = false;
 
   recognition.onstart = () => {
     setVoiceError("");
@@ -1691,50 +1780,52 @@ const startVoiceInput = () => {
   };
 
   recognition.onresult = (event) => {
-    const result =
-      event.results[event.resultIndex] ||
-      event.results[event.results.length - 1];
+    let interimText = "";
+    let newFinalText = "";
 
-    const transcript = pickBestTranscript(result);
+    for (
+      let index = event.resultIndex;
+      index < event.results.length;
+      index += 1
+    ) {
+      const result = event.results[index];
+      const transcript =
+        pickBestTranscript(result).trim();
 
-    if (!transcript.trim()) {
-      setVoiceError(
-        "No recognizable speech was received."
-      );
-      return;
-    }
+      if (!transcript) continue;
 
-    receivedResult = true;
-
-    const previousText =
-      voiceSeedRef.current.trim();
-
-    const finalText = previousText
-      ? normalizeTranscript(
-          `${previousText} ${transcript}`
-        )
-      : normalizeTranscript(transcript);
-
-    setInput(finalText);
-    setVoiceError("");
-  };
-
-  recognition.onspeechend = () => {
-    window.setTimeout(() => {
-      try {
-        recognition.stop();
-      } catch (error) {
-        console.error(
-          "Recognition stop error:",
-          error
+      if (result.isFinal) {
+        newFinalText = normalizeTranscript(
+          `${newFinalText} ${transcript}`
+        );
+      } else {
+        interimText = normalizeTranscript(
+          `${interimText} ${transcript}`
         );
       }
-    }, 300);
+    }
+
+    if (newFinalText) {
+      voiceFinalTextRef.current =
+        normalizeTranscript(
+          `${voiceFinalTextRef.current} ${newFinalText}`
+        );
+    }
+
+    const combinedText = normalizeTranscript(
+      `${voiceSeedRef.current} ${voiceFinalTextRef.current} ${interimText}`
+    );
+
+    if (combinedText) {
+      setInput(combinedText);
+    }
+
+    setVoiceError("");
   };
 
   recognition.onnomatch = () => {
     setVoiceError(
-      "Speech could not be understood. Please speak slowly and clearly."
+      "Speech was not clear. Still listening..."
     );
   };
 
@@ -1746,7 +1837,7 @@ const startVoiceInput = () => {
 
     const errorMessages = {
       "no-speech":
-        "No speech was detected. Tap the microphone and speak again.",
+        "No speech detected. Still listening...",
 
       "audio-capture":
         "The microphone could not capture audio.",
@@ -1764,6 +1855,18 @@ const startVoiceInput = () => {
         "The selected voice language is not supported."
     };
 
+    const fatalErrors = [
+      "audio-capture",
+      "not-allowed",
+      "service-not-allowed",
+      "network",
+      "language-not-supported"
+    ];
+
+    if (fatalErrors.includes(event.error)) {
+      keepListeningRef.current = false;
+    }
+
     if (event.error !== "aborted") {
       setVoiceError(
         errorMessages[event.error] ||
@@ -1773,18 +1876,33 @@ const startVoiceInput = () => {
       );
     }
 
-    setIsListening(false);
   };
 
   recognition.onend = () => {
+    if (
+      keepListeningRef.current &&
+      recognitionRef.current === recognition
+    ) {
+      // Chrome/Edge silence-এর পরে session শেষ করলে আবার শুরু হবে।
+      voiceRestartTimerRef.current =
+        window.setTimeout(() => {
+          if (!keepListeningRef.current) return;
+
+          try {
+            recognition.start();
+          } catch (error) {
+            console.error(
+              "Voice recognition restart error:",
+              error
+            );
+          }
+        }, 300);
+
+      return;
+    }
+
     recognitionRef.current = null;
     setIsListening(false);
-
-    if (!receivedResult) {
-      console.log(
-        "Voice recognition ended without a transcript."
-      );
-    }
   };
 
   try {
@@ -1796,6 +1914,7 @@ const startVoiceInput = () => {
     );
 
     recognitionRef.current = null;
+    keepListeningRef.current = false;
     setIsListening(false);
 
     setVoiceError(
@@ -1807,6 +1926,8 @@ async function sendMessage() {
   const text = input.trim();
 
   if (!text || loading) return;
+
+  stopVoiceInput();
 
   const apiMessage = pendingClarification
     ? `${pendingClarification}\nUser clarification: ${text}`
@@ -2522,7 +2643,7 @@ async function sendMessage() {
 
   {isListening && (
     <span className="voice-status">
-      Listening...
+      Listening... tap the mic to stop
     </span>
   )}
 

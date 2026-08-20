@@ -2914,6 +2914,70 @@ body {
 }
 
 
+.password-input-wrapper {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+
+.password-input-wrapper input {
+  padding-right: 44px !important;
+}
+
+.password-visibility-button {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  z-index: 2;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  place-items: center;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+}
+
+.password-visibility-button:hover,
+.password-visibility-button:focus-visible {
+  color: #0f766e;
+  background: rgba(20, 184, 166, 0.1);
+  outline: none;
+}
+
+.password-visibility-button svg {
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.auth-gate.dark-mode
+.password-visibility-button,
+.sidebar.dark-mode
+.password-visibility-button {
+  color: #94a3b8;
+}
+
+.auth-gate.dark-mode
+.password-visibility-button:hover,
+.auth-gate.dark-mode
+.password-visibility-button:focus-visible,
+.sidebar.dark-mode
+.password-visibility-button:hover,
+.sidebar.dark-mode
+.password-visibility-button:focus-visible {
+  color: #5eead4;
+  background: rgba(45, 212, 191, 0.12);
+}
+
 .password-strength {
   display: grid;
   gap: 5px;
@@ -3087,4 +3151,3 @@ body {
   background: rgba(20, 184, 166, 0.10);
   border-color: rgba(45, 212, 191, 0.25);
 }
-
