@@ -955,13 +955,9 @@ def save_symptom_memory_from_extraction(
     if not extraction:
         return 0
 
-    # Temporal persistence only when Gemini actually
-    # participated in understanding the input.
-    if not extraction.get(
-        "gemini_used",
-        False,
-    ):
-        return 0
+    # Save validated symptoms from both Gemini and the
+    # local CareAI semantic/alias fallback. add_event()
+    # still rejects anything outside the model whitelist.
 
     if extraction.get(
         "intent"
