@@ -15,7 +15,7 @@ import sqlite3
 import smtplib
 import ssl
 from email.message import EmailMessage
-
+from email.utils import formataddr
 try:
     import mysql.connector
     from mysql.connector import Error as MySQLError
@@ -601,7 +601,9 @@ def send_password_reset_email(
     message = EmailMessage()
 
     message["Subject"] = "Reset your CareAI password"
-    message["From"] = SMTP_FROM_EMAIL
+    message["From"] = formataddr(
+    ("CareAI", SMTP_FROM_EMAIL)
+    )
     message["To"] = recipient_email
 
     expiry_minutes = max(
