@@ -348,7 +348,7 @@ function ChatBubble({ role, children, timestamp }) {
 function TypingIndicator() {
   return (
     <div className="message-wrapper bot">
-      <div className="avatar avatar-bot">M</div>
+      <div className="avatar avatar-bot">C</div>
       <div className="bubble-container">
         <div className="bubble bot typing-bubble">
           <span className="typing-dot"></span>
